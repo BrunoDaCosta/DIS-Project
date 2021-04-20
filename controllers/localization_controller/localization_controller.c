@@ -9,6 +9,12 @@
 
 #include "trajectories.h"
 
+
+#define KF_NBR_IN 4
+#define KF_NBR_OUT 2
+
+#define KF_SIZE 5
+
 typedef struct 
 {
   double prev_gps[3];
@@ -108,13 +114,66 @@ void controller_get_pose(){
   
 }
 
+void mult(double a[][KF_SIZE],double b[][KF_SIZE],double c[][KF_SIZE],int r1,int c1,int r2,int c2){
+    int i,j,k;
+
+    for(i=0; i<r1; i++)
+        for(j=0; j<c2; j++){
+            c[i][j]=0;
+        }
+
+    for(i=0; i<r1; i++)
+        for(j=0; j<c2; j++)
+            for(k=0; k<c1; k++){
+                c[i][j]+=a[i][k]*b[k][j];
+            }
+}
+
+
+
+void KF(){
+
+  
+  int i,j;
+  
+  //double K[KF_NBR_IN][KF_NBR_OUT];
+  double K[KF_SIZE][KF_SIZE];
+  
+  double C[KF_SIZE][KF_SIZE] = {{1, 0, 0, 0},
+                                {0, 1, 0, 0}};
+  double Q[KF_SIZE][KF_SIZE] = {{1, 0},
+                                {0, 1}};
+                 
+  
+  
+  mult(Q, C, K, KF_NBR_OUT, KF_NBR_IN, KF_NBR_IN, KF_NBR_IN);
+  for (i=0; i<KF_NBR_OUT; i++) {
+    for (j=0; j<KF_NBR_IN; j++){
+      printf("%g ", K[i][j]);
+    }
+    printf("\n");
+  }
+                
+  
+  
+  /*
+      z = [gpsx(i), gpsy(i)]';
+      K = Cov_new * C' * inv(C*Cov_new*C' + Q);
+      X_new = X_new + K*(z-C*X_new);
+      Cov_new = (eye(4) - K*C)*Cov_new;*/
+  
+}
+
 
 int main() 
 {
+  KF();
+/*
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
   init_devices(time_step);
-  
+ */ 
+  /*
   while (wb_robot_step(time_step) != -1)  {
   // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor);
@@ -125,7 +184,7 @@ int main()
     printf("ROBOT pose : %g %g\n", _robot.pos.x , _robot.pos.y);
 //    trajectory_2(dev_left_motor, dev_right_motor);
   
-  }
+  }*/
   
 }
 

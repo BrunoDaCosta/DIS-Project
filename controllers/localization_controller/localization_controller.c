@@ -8,12 +8,16 @@
 #include <webots/position_sensor.h>
 
 #include "trajectories.h"
+#include "odometry.h"
 
 
 #define KF_NBR_IN 4
 #define KF_NBR_OUT 2
 
 #define KF_SIZE 5
+#define VERBOSE_GPS false
+#define VERBOSE_ACC true
+#define VERBOSE_ENC false
 
 typedef struct 
 {
@@ -27,17 +31,13 @@ typedef struct
   double right_enc;
 } measurement_t;
 
-typedef struct 
-{
-  double x;
-  double y;
-  double heading;
-} pose_t;
+
 
 typedef struct
 {
   pose_t pos;
   pose_t speed;
+  pose_t acc;
   int id;
 } robot_t;
 
@@ -57,6 +57,10 @@ double last_gps_time_s = 0.0f;
 //static FILE *fp;
 
 //-----------------------------------------------------------------------------------//
+
+
+static void controller_get_acc();
+static void controller_get_encoder();
 
 void init_devices(int ts);
 
@@ -84,8 +88,8 @@ void init_devices(int ts) {
 /**
  * @brief     Get the gps measurements for the position of the robot. Get the heading angle. Fill the pose structure. 
  */
-void controller_get_pose(){
-  double time_now_s = wb_robot_get_time();
+  void controller_get_pose(){
+  //double time_now_s = wb_robot_get_time();
 
   memcpy(_meas.prev_gps, _meas.gps, sizeof(_meas.gps));
   const double * gps_position = wb_gps_get_values(dev_gps);
@@ -167,24 +171,59 @@ void KF(){
 
 int main() 
 {
-  KF();
-/*
+  //KF();
+
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
   init_devices(time_step);
- */ 
-  /*
+ 
+  
   while (wb_robot_step(time_step) != -1)  {
+    controller_get_acc();
+
+    controller_get_encoder();
+    
+    
+    
   // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor);
-    
-    
+//    trajectory_2(dev_left_motor, dev_right_motor); 
     controller_get_pose();
-    
-    printf("ROBOT pose : %g %g\n", _robot.pos.x , _robot.pos.y);
-//    trajectory_2(dev_left_motor, dev_right_motor);
+    if(VERBOSE_GPS)
+      printf("ROBOT pose : %g %g\n", _robot.pos.x , _robot.pos.y);
+  }
   
-  }*/
+}
+
+void controller_get_acc()
+{
+  // To Do : Call the function to get the accelerometer measurements. Uncomment and complete the following line. Note : Use _robot.acc
+  const double * acc_values = wb_accelerometer_get_values(dev_acc);
+
+  // To Do : Copy the acc_values into the measurment structure (use memcpy)
+  memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
+
+  if(VERBOSE_ACC)
+    printf("ROBOT acc : %g %g %g\n", _meas.acc[0], _meas.acc[1] , _meas.acc[2]);
+}
+
+
+/**
+ * @brief      Read the encoders values from the sensors
+ */
+void controller_get_encoder()
+{
+  // Store previous value of the left encoder
+  _meas.prev_left_enc = _meas.left_enc;
+
+  _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
   
+  // Store previous value of the right encoder
+  _meas.prev_right_enc = _meas.right_enc;
+  
+  _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
+
+  if(VERBOSE_ENC)
+    printf("ROBOT enc : %g %g\n", _meas.left_enc, _meas.right_enc);
 }
 

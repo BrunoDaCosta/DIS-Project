@@ -10,11 +10,6 @@
 #include "trajectories.h"
 
 
-#define KF_NBR_IN 4
-#define KF_NBR_OUT 2
-
-#define KF_SIZE 5
-
 typedef struct 
 {
   double prev_gps[3];
@@ -41,6 +36,14 @@ typedef struct
   int id;
 } robot_t;
 
+typedef struct
+{
+  double cov[4][4];    //Covariance matrix for KF
+  double new_cov[4][4];
+  double R[4][4];      // R matrix for KF
+  double Q[2][2];      // Q matrix for KF 
+} kalman_filter_param;
+
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
 WbDeviceTag dev_left_encoder;
@@ -52,8 +55,12 @@ WbDeviceTag dev_right_motor;
 /*VARIABLES*/
 static measurement_t  _meas;
 static robot_t        _robot;
+
+static kalman_filter_param _KF;
 //static motor_t        _motor = {false, true, true, MAX_SPEED / 4.0};
 double last_gps_time_s = 0.0f;
+
+
 //static FILE *fp;
 
 //-----------------------------------------------------------------------------------//
@@ -93,9 +100,6 @@ void controller_get_pose(){
 
   //if(VERBOSE_GPS)
   //  printf("ROBOT gps is at position: %g %g %g\n", _meas.gps[0], _meas.gps[1], _meas.gps[2]);
-  
-  _robot.pos.x = _meas.gps[0];
-  _robot.pos.y = _meas.gps[2];
    /* 
   if (time_now_s - last_gps_time_s > 0.1f) {
     last_gps_time_s = time_now_s;
@@ -114,66 +118,98 @@ void controller_get_pose(){
   
 }
 
-void mult(double a[][KF_SIZE],double b[][KF_SIZE],double c[][KF_SIZE],int r1,int c1,int r2,int c2){
-    int i,j,k;
 
-    for(i=0; i<r1; i++)
-        for(j=0; j<c2; j++){
-            c[i][j]=0;
-        }
-
-    for(i=0; i<r1; i++)
-        for(j=0; j<c2; j++)
-            for(k=0; k<c1; k++){
-                c[i][j]+=a[i][k]*b[k][j];
-            }
-}
-
-
-
-void KF(){
-
-  
-  int i,j;
-  
-  //double K[KF_NBR_IN][KF_NBR_OUT];
-  double K[KF_SIZE][KF_SIZE];
-  
-  double C[KF_SIZE][KF_SIZE] = {{1, 0, 0, 0},
-                                {0, 1, 0, 0}};
-  double Q[KF_SIZE][KF_SIZE] = {{1, 0},
-                                {0, 1}};
-                 
-  
-  
-  mult(Q, C, K, KF_NBR_OUT, KF_NBR_IN, KF_NBR_IN, KF_NBR_IN);
-  for (i=0; i<KF_NBR_OUT; i++) {
-    for (j=0; j<KF_NBR_IN; j++){
-      printf("%g ", K[i][j]);
+void init_Kalman_Filter(){
+  int i, j;
+  for (i=0; i<4; i++){
+    for (j=0; j<4; j++){
+      _KF.cov[i][j]=0;
+      _KF.R[i][j]=0;
     }
-    printf("\n");
   }
-                
+  _KF.cov[0][0]=0.001; _KF.cov[1][1]=0.001; _KF.cov[2][2]=0.001; _KF.cov[3][3]=0.001;
+  _KF.R[0][0]=0.05; _KF.R[1][1]=0.05; _KF.R[2][2]=0.01; _KF.R[3][3]=0.01;
   
-  
-  /*
-      z = [gpsx(i), gpsy(i)]';
-      K = Cov_new * C' * inv(C*Cov_new*C' + Q);
-      X_new = X_new + K*(z-C*X_new);
-      Cov_new = (eye(4) - K*C)*Cov_new;*/
-  
+  for (i=0; i<2; i++){
+    for (j=0; j<2; j++){
+      _KF.Q[i][j]=0;
+    }
+  }          
+  _KF.Q[0][0]=1; _KF.Q[1][1]=1;
+           
 }
+
+void print_data(){
+  int i;
+  
+  printf("\nCov. Matrix\n");
+  for (i=0; i<4; i++)
+    printf("%g %g %g %g\n", _KF.cov[i][0], _KF.cov[i][1], _KF.cov[i][2], _KF.cov[i][3]);
+    
+
+  printf("Robot data\n");
+  printf("%f %f %f %f\n\n", _robot.pos.x, _robot.pos.y, _robot.speed.x, _robot.speed.y);
+}
+
+
+void Kalman_Filter(int ts){
+  int i, j;
+
+  _robot.pos.x   = _robot.pos.x + _robot.speed.x*ts;
+  _robot.pos.y   = _robot.pos.y + _robot.speed.y*ts;
+  _robot.speed.x = _robot.speed.x + _meas.acc[0]*ts;
+  _robot.speed.y = _robot.speed.y + _meas.acc[2]*ts;
+  
+  _KF.new_cov[0][0]=_KF.cov[0][0] + (_KF.cov[2][0]+_KF.cov[0][2])*ts + _KF.cov[2][2]*ts*ts + _KF.R[0][0]*ts;
+  _KF.new_cov[0][2]=_KF.cov[0][2] + _KF.cov[2][2]*ts;
+  _KF.new_cov[1][1]=_KF.cov[1][1] + (_KF.cov[1][3]+_KF.cov[3][1])*ts + _KF.cov[3][3]*ts*ts + _KF.R[1][1]*ts;
+  _KF.new_cov[1][3]=_KF.cov[1][3] + _KF.cov[3][3]*ts;
+  _KF.new_cov[2][0]=_KF.cov[2][0] + _KF.cov[2][2]*ts; 
+  _KF.new_cov[2][2]=_KF.cov[2][2]  + _KF.R[2][2]*ts;
+  _KF.new_cov[3][1]=_KF.cov[3][1] + _KF.cov[3][3]*ts;
+  _KF.new_cov[3][3]=_KF.cov[3][3]  + _KF.R[3][3]*ts;
+  
+  printf("From KF\n");
+  print_data();
+  
+  for (i=0; i<4; i++){
+    for (j=0; j<4; j++) _KF.cov[i][j]=_KF.new_cov[i][j];
+  }
+  
+  int use_GPS=0;
+  if (use_GPS){
+    _robot.pos.x   = _robot.pos.x + _KF.cov[0][0]/(1.+_KF.cov[0][0])*(_meas.gps[0]-_robot.pos.x);
+    _robot.pos.y   = _robot.pos.y + _KF.cov[1][1]/(1.+_KF.cov[1][1])*(_meas.gps[2]-_robot.pos.y);
+    _robot.speed.x = _robot.speed.x + _KF.cov[0][2]/(1.+_KF.cov[0][0])*(_meas.gps[0]-_robot.pos.x);
+    _robot.speed.y = _robot.speed.y + _KF.cov[1][3]/(1.+_KF.cov[1][1])*(_meas.gps[2]-_robot.pos.y);
+    
+    _KF.new_cov[0][0]=_KF.cov[0][0] / (1.+_KF.cov[0][0]);
+    _KF.new_cov[0][2]=_KF.cov[0][2] / (1.+_KF.cov[0][0]);
+    _KF.new_cov[1][1]=_KF.cov[1][1] / (1.+_KF.cov[1][1]);
+    _KF.new_cov[1][3]=_KF.cov[1][3] / (1.+_KF.cov[1][1]);
+    _KF.new_cov[2][0]=_KF.cov[2][0] - _KF.cov[0][0]*_KF.cov[0][2] / (1.+_KF.cov[0][0]);
+    _KF.new_cov[2][2]=_KF.cov[2][2] - _KF.cov[0][2]*_KF.cov[2][0]/(1.+_KF.cov[0][0]);
+    _KF.new_cov[3][1]=_KF.cov[3][1] - _KF.cov[1][1]*_KF.cov[1][3] / (1.+_KF.cov[1][1]);
+    _KF.new_cov[3][3]=_KF.cov[3][3] - _KF.cov[1][3]*_KF.cov[3][1]/(1.+_KF.cov[2][2]);
+    
+    for (i=0; i<4; i++){
+      for (j=0; j<4; j++) _KF.cov[i][j]=_KF.new_cov[i][j];
+    }
+  }  
+}
+
+
 
 
 int main() 
 {
-  KF();
-/*
+  init_Kalman_Filter();
+  print_data();
+
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
   init_devices(time_step);
- */ 
-  /*
+
   while (wb_robot_step(time_step) != -1)  {
   // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor);
@@ -181,10 +217,13 @@ int main()
     
     controller_get_pose();
     
-    printf("ROBOT pose : %g %g\n", _robot.pos.x , _robot.pos.y);
+    
+    Kalman_Filter(time_step);
+    
+    //print_data();
 //    trajectory_2(dev_left_motor, dev_right_motor);
-  
-  }*/
+    
+  }
   
 }
 

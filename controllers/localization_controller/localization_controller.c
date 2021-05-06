@@ -56,6 +56,7 @@ WbDeviceTag dev_right_motor;
 /*VARIABLES*/
 static measurement_t  _meas;
 static robot_t        _robot;
+static pose_t         _robot_init_pos;
 
 static kalman_filter_param _KF;
 //static motor_t        _motor = {false, true, true, MAX_SPEED / 4.0};
@@ -74,7 +75,8 @@ void init_devices(int ts);
 
 void init_devices(int ts) {
   dev_gps = wb_robot_get_device("gps");
-  wb_gps_enable(dev_gps, 1000);
+  //wb_gps_enable(dev_gps, 1000);
+  wb_gps_enable(dev_gps, 1);
   
   dev_acc = wb_robot_get_device("accelerometer");
   wb_accelerometer_enable(dev_acc, ts);
@@ -96,7 +98,7 @@ void init_devices(int ts) {
 /**
  * @brief     Get the gps measurements for the position of the robot. Get the heading angle. Fill the pose structure. 
  */
-  void controller_get_pose(){
+ void controller_get_pose(){
   //double time_now_s = wb_robot_get_time();
 
   memcpy(_meas.prev_gps, _meas.gps, sizeof(_meas.gps));
@@ -104,7 +106,7 @@ void init_devices(int ts) {
   memcpy(_meas.gps, gps_position, sizeof(_meas.gps));
 
   //if(VERBOSE_GPS)
-  //  printf("ROBOT gps is at position: %g %g %g\n", _meas.gps[0], _meas.gps[1], _meas.gps[2]);
+ // printf("ROBOT gps is at position: %g %g %g\n", _meas.gps[0], _meas.gps[1], _meas.gps[2]);
    /* 
   if (time_now_s - last_gps_time_s > 0.1f) {
     last_gps_time_s = time_now_s;
@@ -147,23 +149,26 @@ void init_Kalman_Filter(){
 void print_data(){
   int i;
   
-  printf("\nCov. Matrix\n");
+  printf("\n\n\nCov. Matrix\n");
   for (i=0; i<4; i++)
     printf("%g %g %g %g\n", _KF.cov[i][0], _KF.cov[i][1], _KF.cov[i][2], _KF.cov[i][3]);
     
 
   printf("Robot data\n");
-  printf("%f %f %f %f\n\n", _robot.pos.x, _robot.pos.y, _robot.speed.x, _robot.speed.y);
+  printf("%f %f %f %f\n", _robot.pos.x, _robot.pos.y, _robot.speed.x, _robot.speed.y);
+  printf("%f %f\n\n", _meas.gps[0], _meas.gps[2]);
+  
+  
 }
 
-
-void Kalman_Filter(int ts){
+// A FAIRE: TRANSFORMER LA DIRECTION DE L'ACCELERATION DANS LES COORDONEE GLOBAL
+void Kalman_Filter(double ts){
   int i, j;
 
   _robot.pos.x   = _robot.pos.x + _robot.speed.x*ts;
   _robot.pos.y   = _robot.pos.y + _robot.speed.y*ts;
   _robot.speed.x = _robot.speed.x + _meas.acc[0]*ts;
-  _robot.speed.y = _robot.speed.y + _meas.acc[2]*ts;
+  _robot.speed.y = _robot.speed.y + _meas.acc[1]*ts;
   
   _KF.new_cov[0][0]=_KF.cov[0][0] + (_KF.cov[2][0]+_KF.cov[0][2])*ts + _KF.cov[2][2]*ts*ts + _KF.R[0][0]*ts;
   _KF.new_cov[0][2]=_KF.cov[0][2] + _KF.cov[2][2]*ts;
@@ -174,8 +179,7 @@ void Kalman_Filter(int ts){
   _KF.new_cov[3][1]=_KF.cov[3][1] + _KF.cov[3][3]*ts;
   _KF.new_cov[3][3]=_KF.cov[3][3]  + _KF.R[3][3]*ts;
   
-  printf("From KF\n");
-  print_data();
+  
   
   for (i=0; i<4; i++){
     for (j=0; j<4; j++) _KF.cov[i][j]=_KF.new_cov[i][j];
@@ -210,7 +214,8 @@ int main()
 {
 
   init_Kalman_Filter();
-  print_data();
+  
+  //print_data();
 
 
   wb_robot_init();
@@ -219,12 +224,10 @@ int main()
 
   while (wb_robot_step(time_step) != -1)  {
     controller_get_acc();
-
     controller_get_encoder();
     
-    
-    Kalman_Filter(time_step);
-    
+    Kalman_Filter((double) time_step/1000);
+    print_data();
     //print_data();
 //    trajectory_2(dev_left_motor, dev_right_motor);
    
@@ -232,7 +235,7 @@ int main()
     trajectory_1(dev_left_motor, dev_right_motor);
 //    trajectory_2(dev_left_motor, dev_right_motor); 
     controller_get_pose();
-    if(VERBOSE_GPS)
+    if(VERBOSE_GPS && 0)
       printf("ROBOT pose : %g %g\n", _robot.pos.x , _robot.pos.y);
   }
   

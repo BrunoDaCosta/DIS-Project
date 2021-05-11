@@ -52,7 +52,6 @@ void mult(double a[][MMS],double b[][MMS],double res[][MMS],int r1,int c1,int r2
  
 void inv(double a[][MMS], double res[][MMS]){
   double det=1/(a[0][0]*a[1][1]-a[0][1]*a[1][0]);
-  printf("%g\n", det);
   res[0][0]=a[1][1]*det;
   res[1][1]=a[0][0]*det;
   res[1][0]=-a[1][0]*det;

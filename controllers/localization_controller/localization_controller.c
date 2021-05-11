@@ -14,11 +14,15 @@
 
 
 #define VERBOSE_GPS false
-#define VERBOSE_ENC true
-#define VERBOSE_ACC true
+#define VERBOSE_ENC false
+#define VERBOSE_ACC false
 
 #define VERBOSE_POS true
-#define VERBOSE_ACC_MEAN true
+#define VERBOSE_ACC_MEAN false
+#define VERBOSE_KF false
+
+#define ODOMETRY_ACC false
+#define ACTIVATE_KALMAN true
 
 
 /*CONSTANTES*/
@@ -110,20 +114,6 @@ void init_devices(int ts) {
 
 
 
-void print_data(){
-  int i;
-
-  printf("\n\n\nCov. Matrix\n");
-  for (i=0; i<4; i++)
-    printf("%g %g %g %g\n", KF_cov[i][0], KF_cov[i][1], KF_cov[i][2], KF_cov[i][3]);
-
-
-  printf("Robot data\n");
-  printf("%f %f %f %f\n", _robot.pos.x, _robot.pos.y, _robot.speed.x, _robot.speed.y);
-  printf("%f %f\n\n", _meas.gps[0], _meas.gps[2]);
-
-
-}
 
 void KF_Update_Cov_Matrix(double ts){
   double A[MMS][MMS]={{1, 0, ts, 0},
@@ -141,7 +131,7 @@ void KF_Update_Cov_Matrix(double ts){
   double A_cov_AT[MMS][MMS];
   double ts_R[MMS][MMS];
 
-  print_matrix(KF_cov, 4,4);
+  //print_matrix(KF_cov, 4,4);
 
   mult(A,KF_cov,A_cov,4,4,4,4);
   transp(A,AT,4,4);
@@ -150,28 +140,27 @@ void KF_Update_Cov_Matrix(double ts){
   scalar_mult(ts, R, ts_R, 4, 4);
   add(A_cov_AT, ts_R, KF_cov, 4,4,4,4);
 
-  print_matrix(KF_cov, 4,4);
+  //print_matrix(KF_cov, 4,4);
 }
 
 
 void Kalman_Filter(){
-
-  printf("Before\n");
-  printf("Cov matrix\n");
-  print_matrix(KF_cov, 4,4);
-
   static double X[MMS][MMS];
   X[0][0]=_robot.pos.x;
   X[1][0]=_robot.pos.y;
   X[2][0]=_robot.speed.x;
   X[3][0]=_robot.speed.y;
-
-  printf("X matrix\n");
-  print_matrix(X, 4,1);
+  
+  if (VERBOSE_KF){
+    printf("Before\n");
+    printf("Cov matrix\n");
+    print_matrix(KF_cov, 4,4);
+    printf("X matrix\n");
+    print_matrix(X, 4,1);
+  }
 
   static double C[MMS][MMS]={{1, 0, 0, 0},
                              {0, 1, 0, 0}};
-
   static double Q[MMS][MMS]={{1, 0},{0, 1}};
 
   static double Z[MMS][MMS];
@@ -204,21 +193,21 @@ void Kalman_Filter(){
   add(eye4, temp2, temp1, 4,4,4,4);
   mult(KF_cov, temp1, temp2, 4,4,4,4);
   copy_matrix(temp2, KF_cov, 4,4);
-
+  
   _robot.pos.x   = X_new[0][0];
   _robot.pos.y   = X_new[1][0];
   _robot.speed.x = X_new[2][0];
   _robot.speed.y = X_new[3][0];
 
 
-
-  printf("After\n");
-  printf("Cov matrix\n");
-  print_matrix(KF_cov, 4,4);
-
-  printf("X matrix\n");
-  print_matrix(X_new, 4,1);
-
+  if (VERBOSE_KF){
+    printf("After\n");
+    printf("Cov matrix\n");
+    print_matrix(KF_cov, 4,4);
+  
+    printf("X matrix\n");
+    print_matrix(X_new, 4,1);
+  }
 }
 
 
@@ -227,7 +216,7 @@ int main()
 {
   _robot.pos.x = -2.9;
   _robot.pos.y = 0;
-  _robot.pos.heading = -1.5708;
+  _robot.pos.heading = 0;
   _robot.speed.x = 0;
   _robot.speed.y = 0;
 
@@ -236,36 +225,38 @@ int main()
   init_devices(time_step);
 
   while (wb_robot_step(time_step) != -1)  {
-    if( wb_robot_get_time() < TIME_INIT_ACC )
-    {
-      controller_compute_mean_acc();
+    if(ODOMETRY_ACC){
+      if(wb_robot_get_time() < TIME_INIT_ACC){
+        controller_compute_mean_acc();
+        continue;
+      }
+      else
+        controller_get_acc();
+      }
+    else{
+      controller_get_encoder();  
     }
-    else
-    {
-      //controller_get_encoder();
-      controller_get_acc();
 
-    if (VERBOSE_POS)  printf("ROBOT pose: %g %g\n", _robot.pos.x , _robot.pos.y);
+    
 
     KF_Update_Cov_Matrix((double) time_step/1000);
 
     double time_now_s = wb_robot_get_time();
-    if (time_now_s - last_gps_time_s >= 1.0f) {
+    if (ACTIVATE_KALMAN &&   time_now_s - last_gps_time_s >= 1.0f) {
       last_gps_time_s = time_now_s;
       controller_get_gps();
-
+      if (VERBOSE_POS)  printf("ROBOT pose: %g %g %g\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
+      
       Kalman_Filter();
 
-      if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g\n", _robot.pos.x , _robot.pos.y);
+      if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
     }
 
 
   // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor);
 //    trajectory_2(dev_left_motor, dev_right_motor);
-    }
   }
-
 }
 
 

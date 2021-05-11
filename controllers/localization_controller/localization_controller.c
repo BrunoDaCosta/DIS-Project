@@ -10,6 +10,8 @@
 #include "trajectories.h"
 #include "odometry.h"
 
+#include "utils.h"
+
 
 #define VERBOSE_GPS false
 #define VERBOSE_ACC true
@@ -39,6 +41,8 @@ typedef struct
 
 typedef struct
 {
+  double X[MMS][MMS];
+  double new_X[MMS][MMS];
   double cov[4][4];    //Covariance matrix for KF
   double new_cov[4][4];
   double R[4][4];      // R matrix for KF
@@ -142,8 +146,7 @@ void init_Kalman_Filter(){
       _KF.Q[i][j]=0;
     }
   }          
-  _KF.Q[0][0]=1; _KF.Q[1][1]=1;
-           
+  _KF.Q[0][0]=1; _KF.Q[1][1]=1;        
 }
 
 void print_data(){
@@ -161,54 +164,101 @@ void print_data(){
   
 }
 
-// A FAIRE: TRANSFORMER LA DIRECTION DE L'ACCELERATION DANS LES COORDONEE GLOBAL
-void Kalman_Filter(double ts){
-  int i, j;
-
-  _robot.pos.x   = _robot.pos.x + _robot.speed.x*ts;
-  _robot.pos.y   = _robot.pos.y + _robot.speed.y*ts;
-  _robot.speed.x = _robot.speed.x + _meas.acc[0]*ts;
-  _robot.speed.y = _robot.speed.y + _meas.acc[1]*ts;
+void KF_Update_Cov_Matrix(double ts){
+  double A[MMS][MMS]={{1, 0, ts, 0},
+                      {0, 1, 0, ts},
+                      {0, 0, 1, 0 },
+                      {0, 0, 0, 1 }};
+                      
+  double R[MMS][MMS]={{0.05, 0, 0, 0},
+                      {0, 0.05, 0, 0},
+                      {0, 0, 0.01, 0},
+                      {0, 0, 0, 0.01}};
+                      
+  double A_cov[MMS][MMS];
+  double AT[MMS][MMS];
+  double A_cov_AT[MMS][MMS];
+  double ts_R[MMS][MMS];
   
-  _KF.new_cov[0][0]=_KF.cov[0][0] + (_KF.cov[2][0]+_KF.cov[0][2])*ts + _KF.cov[2][2]*ts*ts + _KF.R[0][0]*ts;
-  _KF.new_cov[0][2]=_KF.cov[0][2] + _KF.cov[2][2]*ts;
-  _KF.new_cov[1][1]=_KF.cov[1][1] + (_KF.cov[1][3]+_KF.cov[3][1])*ts + _KF.cov[3][3]*ts*ts + _KF.R[1][1]*ts;
-  _KF.new_cov[1][3]=_KF.cov[1][3] + _KF.cov[3][3]*ts;
-  _KF.new_cov[2][0]=_KF.cov[2][0] + _KF.cov[2][2]*ts; 
-  _KF.new_cov[2][2]=_KF.cov[2][2]  + _KF.R[2][2]*ts;
-  _KF.new_cov[3][1]=_KF.cov[3][1] + _KF.cov[3][3]*ts;
-  _KF.new_cov[3][3]=_KF.cov[3][3]  + _KF.R[3][3]*ts;
+  print_matrix(_KF.cov, 4,4);
+                                
+  mult(A,_KF.cov,A_cov,4,4,4,4);
+  transp(A,AT,4,4);
+  mult(A_cov, AT, A_cov_AT, 4,4,4,4);
   
+  scalar_mult(ts, _KF.R, ts_R, 4, 4);
+  add(A_cov_AT, ts_R, _KF.cov, 4,4,4,4);
   
-  
-  for (i=0; i<4; i++){
-    for (j=0; j<4; j++) _KF.cov[i][j]=_KF.new_cov[i][j];
-  }
-  
-  double time_now_s = wb_robot_get_time();
-  if (time_now_s - last_gps_time_s > 1.0f) {
-    last_gps_time_s = time_now_s;
-
-    _robot.pos.x   = _robot.pos.x + _KF.cov[0][0]/(1.+_KF.cov[0][0])*(_meas.gps[0]-_robot.pos.x);
-    _robot.pos.y   = _robot.pos.y + _KF.cov[1][1]/(1.+_KF.cov[1][1])*(_meas.gps[2]-_robot.pos.y);
-    _robot.speed.x = _robot.speed.x + _KF.cov[0][2]/(1.+_KF.cov[0][0])*(_meas.gps[0]-_robot.pos.x);
-    _robot.speed.y = _robot.speed.y + _KF.cov[1][3]/(1.+_KF.cov[1][1])*(_meas.gps[2]-_robot.pos.y);
-    
-    _KF.new_cov[0][0]=_KF.cov[0][0] / (1.+_KF.cov[0][0]);
-    _KF.new_cov[0][2]=_KF.cov[0][2] / (1.+_KF.cov[0][0]);
-    _KF.new_cov[1][1]=_KF.cov[1][1] / (1.+_KF.cov[1][1]);
-    _KF.new_cov[1][3]=_KF.cov[1][3] / (1.+_KF.cov[1][1]);
-    _KF.new_cov[2][0]=_KF.cov[2][0] - _KF.cov[0][0]*_KF.cov[0][2] / (1.+_KF.cov[0][0]);
-    _KF.new_cov[2][2]=_KF.cov[2][2] - _KF.cov[0][2]*_KF.cov[2][0]/(1.+_KF.cov[0][0]);
-    _KF.new_cov[3][1]=_KF.cov[3][1] - _KF.cov[1][1]*_KF.cov[1][3] / (1.+_KF.cov[1][1]);
-    _KF.new_cov[3][3]=_KF.cov[3][3] - _KF.cov[1][3]*_KF.cov[3][1]/(1.+_KF.cov[2][2]);
-    
-    for (i=0; i<4; i++){
-      for (j=0; j<4; j++) _KF.cov[i][j]=_KF.new_cov[i][j];
-    }
-  }  
+  print_matrix(_KF.cov, 4,4);
 }
 
+
+void Kalman_Filter(double ts){
+
+  printf("Before\n");
+  printf("Cov matrix\n");
+  print_matrix(_KF.cov, 4,4);
+
+  static double X[MMS][MMS];
+  X[0][0]=_robot.pos.x;
+  X[1][0]=_robot.pos.y;
+  X[2][0]=_robot.speed.x;
+  X[3][0]=_robot.speed.y;
+
+  printf("X matrix\n");
+  print_matrix(X, 4,1);
+                                
+  static double C[MMS][MMS]={{1, 0, 0, 0},
+                             {0, 1, 0, 0}};
+
+  static double Q[MMS][MMS]={{1, 0},{0, 1}};
+
+  static double Z[MMS][MMS];
+  Z[0][0] = _meas.gps[0];
+  Z[1][0] = _meas.gps[2];
+  
+  static double X_new[MMS][MMS];
+  
+  static double K[MMS][MMS];
+  static double temp1[MMS][MMS];
+  static double temp2[MMS][MMS];
+  static double cov_Ct[MMS][MMS];
+  static double eye4[MMS][MMS]={{1, 0, 0, 0},{0, 1, 0, 0},{0, 0, 1, 0},{0, 0, 0, 1}};
+  
+  transp(C, temp1, 2, 4);
+  mult(_KF.cov,temp1,cov_Ct,4,4,4,2);
+  mult(C,cov_Ct,temp1,2,4,4,2);
+  add(temp1, Q, temp2, 2,2,2,2);
+  inv(temp2, temp1);
+  mult(cov_Ct,temp1,K,4,2,2,2);
+  
+  mult(C, X, temp2, 2,4,4,1);
+  scalar_mult(-1, temp2, temp1, 2,1);
+  add(Z, temp1, temp2, 2,1,2,1);
+  mult(K, temp2, temp1, 4,2,2,1);
+  add(X, temp1, X_new, 4,1,4,1);
+  
+  mult(K,C,temp1, 4,2,2,4);
+  scalar_mult(-1, temp1, temp2, 4,4);
+  add(eye4, temp2, temp1, 4,4,4,4);
+  mult(_KF.cov, temp1, temp2, 4,4,4,4);
+  copy_matrix(temp2, _KF.cov, 4,4);
+  
+  _robot.pos.x   = X_new[0][0];
+  _robot.pos.y   = X_new[1][0];
+  _robot.speed.x = X_new[2][0];
+  _robot.speed.y = X_new[3][0];
+  
+  
+  
+  printf("After\n");
+  printf("Cov matrix\n");
+  print_matrix(_KF.cov, 4,4);
+
+  printf("X matrix\n");
+  print_matrix(X_new, 4,1);
+    
+}
 
 
 
@@ -217,9 +267,20 @@ int main()
 
   init_Kalman_Filter();
   
-  //print_data();
-
-
+  _robot.pos.x   = 45;
+  _robot.pos.y   = 64.3;
+  _robot.speed.x = 0.45;
+  _robot.speed.y = -0.92;
+  
+  _meas.gps[0]=25.6;
+  _meas.gps[2]=100.5;
+  
+  
+  //KF_Update_Cov_Matrix(5.4);
+  Kalman_Filter(5.4);
+  return 0;
+  
+  
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
   init_devices(time_step);

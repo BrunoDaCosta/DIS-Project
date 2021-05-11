@@ -14,8 +14,12 @@
 
 
 #define VERBOSE_GPS false
-#define VERBOSE_ACC true
 #define VERBOSE_ENC false
+#define VERBOSE_ACC true
+
+/*CONSTANTES*/
+#define WHEEL_AXIS 	0.057 		// Distance between the two wheels in meter
+#define WHEEL_RADIUS 	0.020		// Radius of the wheel in meter
 
 typedef struct 
 {
@@ -27,6 +31,9 @@ typedef struct
   double left_enc;
   double prev_right_enc;
   double right_enc;
+  double speed_odo[2];
+  double acc_odo[2];
+  
 } measurement_t;
 
 
@@ -286,11 +293,11 @@ int main()
   init_devices(time_step);
 
   while (wb_robot_step(time_step) != -1)  {
-    controller_get_acc();
     controller_get_encoder();
+    controller_get_acc();
     
     Kalman_Filter((double) time_step/1000);
-    print_data();
+    //print_data();
     //print_data();
 //    trajectory_2(dev_left_motor, dev_right_motor);
    
@@ -304,35 +311,67 @@ int main()
   
 }
 
-void controller_get_acc()
-{
-  // To Do : Call the function to get the accelerometer measurements. Uncomment and complete the following line. Note : Use _robot.acc
-  const double * acc_values = wb_accelerometer_get_values(dev_acc);
-
-  // To Do : Copy the acc_values into the measurment structure (use memcpy)
-  memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
-
-  if(VERBOSE_ACC)
-    printf("ROBOT acc : %g %g %g\n", _meas.acc[0], _meas.acc[1] , _meas.acc[2]);
-}
-
 
 /**
  * @brief      Read the encoders values from the sensors
  */
 void controller_get_encoder()
 {
+  int time_step = wb_robot_get_basic_time_step();
   // Store previous value of the left encoder
   _meas.prev_left_enc = _meas.left_enc;
 
   _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
   
+  double deltaleft=_meas.left_enc-_meas.prev_left_enc;
   // Store previous value of the right encoder
   _meas.prev_right_enc = _meas.right_enc;
   
   _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
+  
+  double deltaright=_meas.right_enc-_meas.prev_right_enc;
+  
+  deltaleft  *= WHEEL_RADIUS;
+  deltaright *= WHEEL_RADIUS;
+  
+  double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step );
+  double speed = ( deltaright + deltaleft ) / ( 2.0 * time_step );
 
+  double a = _robot.pos.heading;
+
+  double speed_wx = speed * cos(a);
+  double speed_wy = speed * sin(a);
+  
+  //Enregistrement vitesse pour Kalman
+  _meas.speed_odo[0]=speed_wx;
+  _meas.speed_odo[1]=speed_wy;
+  
+  //A enlever à terme
+  _robot.pos.x += speed_wx * time_step;
+  _robot.pos.y += speed_wy * time_step;
+  _robot.pos.heading += omega * time_step;
+  
   if(VERBOSE_ENC)
-    printf("ROBOT enc : %g %g\n", _meas.left_enc, _meas.right_enc);
+    printf("ROBOT enc : vx: %g  vy: %g heading: %g\n", speed_wx, speed_wy, a);
+}
+
+void controller_get_acc()
+{
+  int time_step = wb_robot_get_basic_time_step();
+  // To Do : Call the function to get the accelerometer measurements. Uncomment and complete the following line. Note : Use _robot.acc
+  const double * acc_values = wb_accelerometer_get_values(dev_acc);
+
+  memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
+  double acc = ( _meas.acc[1] - _meas.acc_mean[1]);
+  
+
+  _meas.acc_odo[0] = acc * cos(_robot.pos.heading) * time_step;
+  _meas.acc_odo[1] = acc * sin(_robot.pos.heading) * time_step;
+  //memcpy(odo, &_odo_pose_acc, sizeof(pose_t));
+  
+  if(VERBOSE_ACC)
+    printf("ROBOT acc : ax: %g  ay: %g heading: %g\n", _meas.acc_odo[0], _meas.acc_odo[1], _robot.pos.heading);	
+  
+
 }
 

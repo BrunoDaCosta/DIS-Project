@@ -78,7 +78,7 @@ static double KF_cov[MMS][MMS]={{0.001, 0, 0, 0},
 double last_gps_time_s = 0.0f;
 
 
-//static FILE *fp;
+static FILE *fp;
 
 //-----------------------------------------------------------------------------------//
 
@@ -87,6 +87,8 @@ static void controller_get_acc();
 static void controller_get_encoder();
 static void controller_get_gps();
 static void controller_compute_mean_acc();
+static void controller_print_log();
+static bool controller_init_log(const char* filename);
 
 void init_devices(int ts);
 
@@ -214,6 +216,7 @@ void Kalman_Filter(){
 
 int main()
 {
+  if (controller_init_log("test1.csv")) return 1;
   _robot.pos.x = -2.9;
   _robot.pos.y = 0;
   _robot.pos.heading = 0;
@@ -252,11 +255,21 @@ int main()
       if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
     }
 
+    controller_print_log();
 
   // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor);
 //    trajectory_2(dev_left_motor, dev_right_motor);
   }
+  
+  // Close the log file
+  if(fp != NULL)
+    fclose(fp);
+    
+   // End of the simulation
+  wb_robot_cleanup();
+
+  return 0;
 }
 
 
@@ -383,4 +396,36 @@ void controller_get_gps(){
   memcpy(_meas.prev_gps, _meas.gps, sizeof(_meas.gps));
   const double * gps_position = wb_gps_get_values(dev_gps);
   memcpy(_meas.gps, gps_position, sizeof(_meas.gps));
+}
+
+/**
+ * @brief      Log the usefull informations about the simulation
+ *
+ * @param[in]  time  The time
+ */
+void controller_print_log()
+{
+
+  if( fp != NULL){
+    fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g;\n",
+            wb_robot_get_time(), _robot.pos.x, _robot.pos.y , _robot.pos.heading, _meas.gps[0], _meas.gps[1],
+             _robot.speed.x, _robot.speed.y, _robot.acc.x, _robot.acc.y);
+  }
+}
+
+/**
+ * @brief      Initialize the logging of the file
+ *
+ * @param[in]  filename  The filename to write
+ *
+ * @return     return true if it fails
+ */
+bool controller_init_log(const char* filename){
+  fp = fopen(filename,"w");
+  bool err = (fp == NULL);
+
+  if( !err ){
+    fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; speed_x; speed_y; acc_x; acc_y\n");
+  }
+  return err;
 }

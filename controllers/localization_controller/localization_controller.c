@@ -75,8 +75,8 @@ void init_devices(int ts);
 
 void init_devices(int ts) {
   dev_gps = wb_robot_get_device("gps");
-  //wb_gps_enable(dev_gps, 1000);
-  wb_gps_enable(dev_gps, 1);
+  wb_gps_enable(dev_gps, 1000);
+  //wb_gps_enable(dev_gps, 1);
   
   dev_acc = wb_robot_get_device("accelerometer");
   wb_accelerometer_enable(dev_acc, ts);
@@ -185,8 +185,10 @@ void Kalman_Filter(double ts){
     for (j=0; j<4; j++) _KF.cov[i][j]=_KF.new_cov[i][j];
   }
   
-  int use_GPS=0;
-  if (use_GPS){
+  double time_now_s = wb_robot_get_time();
+  if (time_now_s - last_gps_time_s > 1.0f) {
+    last_gps_time_s = time_now_s;
+
     _robot.pos.x   = _robot.pos.x + _KF.cov[0][0]/(1.+_KF.cov[0][0])*(_meas.gps[0]-_robot.pos.x);
     _robot.pos.y   = _robot.pos.y + _KF.cov[1][1]/(1.+_KF.cov[1][1])*(_meas.gps[2]-_robot.pos.y);
     _robot.speed.x = _robot.speed.x + _KF.cov[0][2]/(1.+_KF.cov[0][0])*(_meas.gps[0]-_robot.pos.x);

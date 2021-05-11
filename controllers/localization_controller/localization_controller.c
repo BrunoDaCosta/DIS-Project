@@ -12,12 +12,14 @@
 
 
 #define VERBOSE_GPS false
-#define VERBOSE_ENC false
+#define VERBOSE_ENC true
 #define VERBOSE_ACC true
+#define VERBOSE_ACC_MEAN true
 
 /*CONSTANTES*/
 #define WHEEL_AXIS 	0.057 		// Distance between the two wheels in meter
 #define WHEEL_RADIUS 	0.020		// Radius of the wheel in meter
+#define TIME_INIT_ACC 5                    // Time in second
 
 typedef struct 
 {
@@ -77,6 +79,7 @@ double last_gps_time_s = 0.0f;
 
 static void controller_get_acc();
 static void controller_get_encoder();
+static void controller_compute_mean_acc();
 
 void init_devices(int ts);
 
@@ -232,10 +235,16 @@ int main()
   init_devices(time_step);
 
   while (wb_robot_step(time_step) != -1)  {
-    controller_get_encoder();
-    controller_get_acc();
+    if( wb_robot_get_time() < TIME_INIT_ACC )
+    {
+      controller_compute_mean_acc();
+    }
+    else
+    {
+      //controller_get_encoder();
+      controller_get_acc();
     
-    Kalman_Filter((double) time_step/1000);
+    //Kalman_Filter((double) time_step/1000);
     //print_data();
     //print_data();
 //    trajectory_2(dev_left_motor, dev_right_motor);
@@ -246,6 +255,7 @@ int main()
     controller_get_pose();
     if(VERBOSE_GPS && 0)
       printf("ROBOT pose : %g %g\n", _robot.pos.x , _robot.pos.y);
+      }
   }
   
 }
@@ -286,31 +296,82 @@ void controller_get_encoder()
   _meas.speed_odo[1]=speed_wy;
   
   //A enlever à terme
-  _robot.pos.x += speed_wx * time_step;
-  _robot.pos.y += speed_wy * time_step;
+  _robot.speed.x = speed_wx;
+  _robot.speed.y = speed_wy;
+  _robot.pos.x += _robot.speed.x * time_step;
+  _robot.pos.y += _robot.speed.y * time_step;
   _robot.pos.heading += omega * time_step;
   
   if(VERBOSE_ENC)
-    printf("ROBOT enc : vx: %g  vy: %g heading: %g\n", speed_wx, speed_wy, a);
+    printf("ROBOT enc : x: %g  y: %g heading: %g\n", _robot.pos.x, _robot.pos.y, _robot.pos.heading);
 }
 
 void controller_get_acc()
 {
   int time_step = wb_robot_get_basic_time_step();
-  // To Do : Call the function to get the accelerometer measurements. Uncomment and complete the following line. Note : Use _robot.acc
-  const double * acc_values = wb_accelerometer_get_values(dev_acc);
-
-  memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
-  double acc = ( _meas.acc[1] - _meas.acc_mean[1]);
   
-
-  _meas.acc_odo[0] = acc * cos(_robot.pos.heading) * time_step;
-  _meas.acc_odo[1] = acc * sin(_robot.pos.heading) * time_step;
-  //memcpy(odo, &_odo_pose_acc, sizeof(pose_t));
+  const double * acc_values = wb_accelerometer_get_values(dev_acc);
+  memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
+  
+  double accfront = ( _meas.acc[1] - _meas.acc_mean[1]);
+  double accside = ( _meas.acc[0] - _meas.acc_mean[0]);
+  /*printf(" \n \n");
+  printf("ROBOT acc now : front: %g  side: %g \n", _meas.acc[1], _meas.acc[0]);	
+  printf("ROBOT acc mea : front: %g  side: %g \n", _meas.acc_mean[1], _meas.acc_mean[0]);	
+  printf("ROBOT acc tot : front: %g  side: %g \n", accfront, accside);	
+  printf(" \n \n");*/
+  
+  double heading_tmp = _robot.pos.heading;
+  ///////HEADING/////////
+  _meas.prev_left_enc = _meas.left_enc;
+  _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
+  double deltaleft=_meas.left_enc-_meas.prev_left_enc;
+  _meas.prev_right_enc = _meas.right_enc;
+  _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
+  double deltaright=_meas.right_enc-_meas.prev_right_enc;
+  deltaleft  *= WHEEL_RADIUS;
+  deltaright *= WHEEL_RADIUS;
+  double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step );
+  _robot.pos.heading += omega * time_step;
+  ///////////////////////
+  
+  double delta_heading = _robot.pos.heading - heading_tmp;
+  _meas.acc_odo[0] = accfront * cos(_robot.pos.heading);
+  _meas.acc_odo[1] = accfront * sin(_robot.pos.heading);
+  
+  _robot.acc.x=_meas.acc_odo[0];
+  _robot.acc.y=_meas.acc_odo[1];
+  
+  double spxtmp = _robot.speed.x;
+  double spytmp = _robot.speed.y;
+  _robot.speed.x = cos(delta_heading)*spxtmp - sin(delta_heading)*spytmp + _robot.acc.x * time_step/ 1000.0;
+  _robot.speed.y = sin(delta_heading)*spxtmp + cos(delta_heading)*spytmp + _robot.acc.y * time_step/ 1000.0;
+  _robot.pos.x += _robot.speed.x * time_step/ 1000.0;
+  _robot.pos.y += _robot.speed.y * time_step/ 1000.0;
   
   if(VERBOSE_ACC)
-    printf("ROBOT acc : ax: %g  ay: %g heading: %g\n", _meas.acc_odo[0], _meas.acc_odo[1], _robot.pos.heading);	
+    printf("ROBOT acc : x: %g  y: %g heading: %g\n", _robot.pos.x, _robot.pos.y, _robot.pos.heading);	
   
 
 }
 
+void controller_compute_mean_acc()
+{
+  static int count = 0;
+  
+  count++;
+  const double * acc_values = wb_accelerometer_get_values(dev_acc);
+  memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
+  
+  if( count > 20 ) // Remove the effects of strong acceleration at the begining
+  {
+    for(int i = 0; i < 3; i++)  
+        _meas.acc_mean[i] = (_meas.acc_mean[i] * (count - 21) + _meas.acc[i]) / ((double) count-20);
+  }
+  int time_step = wb_robot_get_basic_time_step();
+  if( count == (int) (TIME_INIT_ACC / (double) time_step) )
+    printf("Accelerometer initialization Done ! \n");
+
+  if(VERBOSE_ACC_MEAN)
+        printf("ROBOT acc mean : %g %g %g\n", _meas.acc_mean[0], _meas.acc_mean[1] , _meas.acc_mean[2]);
+}

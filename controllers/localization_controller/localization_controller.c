@@ -46,15 +46,7 @@ typedef struct
   int id;
 } robot_t;
 
-typedef struct
-{
-  double X[MMS][MMS];
-  double new_X[MMS][MMS];
-  double cov[4][4];    //Covariance matrix for KF
-  double new_cov[4][4];
-  double R[4][4];      // R matrix for KF
-  double Q[2][2];      // Q matrix for KF 
-} kalman_filter_param;
+
 
 WbDeviceTag dev_gps;
 WbDeviceTag dev_acc;
@@ -69,7 +61,10 @@ static measurement_t  _meas;
 static robot_t        _robot;
 static pose_t         _robot_init_pos;
 
-static kalman_filter_param _KF;
+static double KF_cov[MMS][MMS]={{0.001, 0, 0, 0},
+                                {0, 0.001, 0, 0},
+                                {0, 0, 0.001, 0},
+                                {0, 0, 0, 0.001}};
 //static motor_t        _motor = {false, true, true, MAX_SPEED / 4.0};
 double last_gps_time_s = 0.0f;
 
@@ -106,62 +101,14 @@ void init_devices(int ts) {
   wb_motor_set_velocity(dev_right_motor, 0.0);
 }
 
-/**
- * @brief     Get the gps measurements for the position of the robot. Get the heading angle. Fill the pose structure. 
- */
- void controller_get_pose(){
-  //double time_now_s = wb_robot_get_time();
 
-  memcpy(_meas.prev_gps, _meas.gps, sizeof(_meas.gps));
-  const double * gps_position = wb_gps_get_values(dev_gps);
-  memcpy(_meas.gps, gps_position, sizeof(_meas.gps));
-
-  //if(VERBOSE_GPS)
- // printf("ROBOT gps is at position: %g %g %g\n", _meas.gps[0], _meas.gps[1], _meas.gps[2]);
-   /* 
-  if (time_now_s - last_gps_time_s > 0.1f) {
-    last_gps_time_s = time_now_s;
-    controller_get_gps();
-
-    // To Do : Fill the structure pose_t {x, y, heading}. Use the _pose_origin.
-    _pose.x = _meas.gps[0] - _pose_origin.x;
-    
-    _pose.y = -(_meas.gps[2] - _pose_origin.y);
-    
-    _pose.heading = controller_get_heading() + _pose_origin.heading;
-  
-    if(VERBOSE_POSE)
-      printf("ROBOT pose : %g %g %g\n", _pose.x , _pose.y , RAD2DEG(_pose.heading));
-  }*/
-  
-}
-
-
-void init_Kalman_Filter(){
-  int i, j;
-  for (i=0; i<4; i++){
-    for (j=0; j<4; j++){
-      _KF.cov[i][j]=0;
-      _KF.R[i][j]=0;
-    }
-  }
-  _KF.cov[0][0]=0.001; _KF.cov[1][1]=0.001; _KF.cov[2][2]=0.001; _KF.cov[3][3]=0.001;
-  _KF.R[0][0]=0.05; _KF.R[1][1]=0.05; _KF.R[2][2]=0.01; _KF.R[3][3]=0.01;
-  
-  for (i=0; i<2; i++){
-    for (j=0; j<2; j++){
-      _KF.Q[i][j]=0;
-    }
-  }          
-  _KF.Q[0][0]=1; _KF.Q[1][1]=1;        
-}
 
 void print_data(){
   int i;
   
   printf("\n\n\nCov. Matrix\n");
   for (i=0; i<4; i++)
-    printf("%g %g %g %g\n", _KF.cov[i][0], _KF.cov[i][1], _KF.cov[i][2], _KF.cov[i][3]);
+    printf("%g %g %g %g\n", KF_cov[i][0], KF_cov[i][1], KF_cov[i][2], KF_cov[i][3]);
     
 
   printf("Robot data\n");
@@ -187,24 +134,24 @@ void KF_Update_Cov_Matrix(double ts){
   double A_cov_AT[MMS][MMS];
   double ts_R[MMS][MMS];
   
-  print_matrix(_KF.cov, 4,4);
+  print_matrix(KF_cov, 4,4);
                                 
-  mult(A,_KF.cov,A_cov,4,4,4,4);
+  mult(A,KF_cov,A_cov,4,4,4,4);
   transp(A,AT,4,4);
   mult(A_cov, AT, A_cov_AT, 4,4,4,4);
   
-  scalar_mult(ts, _KF.R, ts_R, 4, 4);
-  add(A_cov_AT, ts_R, _KF.cov, 4,4,4,4);
+  scalar_mult(ts, R, ts_R, 4, 4);
+  add(A_cov_AT, ts_R, KF_cov, 4,4,4,4);
   
-  print_matrix(_KF.cov, 4,4);
+  print_matrix(KF_cov, 4,4);
 }
 
 
-void Kalman_Filter(double ts){
+void Kalman_Filter(){
 
   printf("Before\n");
   printf("Cov matrix\n");
-  print_matrix(_KF.cov, 4,4);
+  print_matrix(KF_cov, 4,4);
 
   static double X[MMS][MMS];
   X[0][0]=_robot.pos.x;
@@ -233,7 +180,7 @@ void Kalman_Filter(double ts){
   static double eye4[MMS][MMS]={{1, 0, 0, 0},{0, 1, 0, 0},{0, 0, 1, 0},{0, 0, 0, 1}};
   
   transp(C, temp1, 2, 4);
-  mult(_KF.cov,temp1,cov_Ct,4,4,4,2);
+  mult(KF_cov,temp1,cov_Ct,4,4,4,2);
   mult(C,cov_Ct,temp1,2,4,4,2);
   add(temp1, Q, temp2, 2,2,2,2);
   inv(temp2, temp1);
@@ -248,8 +195,8 @@ void Kalman_Filter(double ts){
   mult(K,C,temp1, 4,2,2,4);
   scalar_mult(-1, temp1, temp2, 4,4);
   add(eye4, temp2, temp1, 4,4,4,4);
-  mult(_KF.cov, temp1, temp2, 4,4,4,4);
-  copy_matrix(temp2, _KF.cov, 4,4);
+  mult(KF_cov, temp1, temp2, 4,4,4,4);
+  copy_matrix(temp2, KF_cov, 4,4);
   
   _robot.pos.x   = X_new[0][0];
   _robot.pos.y   = X_new[1][0];
@@ -260,7 +207,7 @@ void Kalman_Filter(double ts){
   
   printf("After\n");
   printf("Cov matrix\n");
-  print_matrix(_KF.cov, 4,4);
+  print_matrix(KF_cov, 4,4);
 
   printf("X matrix\n");
   print_matrix(X_new, 4,1);
@@ -270,23 +217,12 @@ void Kalman_Filter(double ts){
 
 
 int main() 
-{
-
-  init_Kalman_Filter();
-  
-  _robot.pos.x   = 45;
-  _robot.pos.y   = 64.3;
-  _robot.speed.x = 0.45;
-  _robot.speed.y = -0.92;
-  
-  _meas.gps[0]=25.6;
-  _meas.gps[2]=100.5;
-  
-  
-  //KF_Update_Cov_Matrix(5.4);
-  Kalman_Filter(5.4);
-  return 0;
-  
+{ 
+  _robot.pos.x = -2.9;
+  _robot.pos.y = 0;
+  _robot.pos.heading = -1.5708;
+  _robot.speed.x = 0;
+  _robot.speed.y = 0;
   
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
@@ -296,17 +232,24 @@ int main()
     controller_get_encoder();
     controller_get_acc();
     
-    Kalman_Filter((double) time_step/1000);
-    //print_data();
-    //print_data();
-//    trajectory_2(dev_left_motor, dev_right_motor);
+    if (VERBOSE_POS)  printf("ROBOT pose: %g %g\n", _robot.pos.x , _robot.pos.y);
+    
+    KF_Update_Cov_Matrix((double) time_step/1000);
+     
+    double time_now_s = wb_robot_get_time();
+    if (time_now_s - last_gps_time_s >= 1.0f) {
+      last_gps_time_s = time_now_s;
+      controller_get_gps();
+      
+      Kalman_Filter();
+      
+      if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g\n", _robot.pos.x , _robot.pos.y);
+      
+
    
   // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor);
 //    trajectory_2(dev_left_motor, dev_right_motor); 
-    controller_get_pose();
-    if(VERBOSE_GPS && 0)
-      printf("ROBOT pose : %g %g\n", _robot.pos.x , _robot.pos.y);
   }
   
 }
@@ -374,4 +317,14 @@ void controller_get_acc()
   
 
 }
+
+/**
+ * @brief     Get the gps measurements for the position of the robot. Get the heading angle. Fill the pose structure. 
+ */
+void controller_get_gps(){
+  memcpy(_meas.prev_gps, _meas.gps, sizeof(_meas.gps));
+  const double * gps_position = wb_gps_get_values(dev_gps);
+  memcpy(_meas.gps, gps_position, sizeof(_meas.gps)); 
+}
+
 

@@ -16,6 +16,7 @@
 #define VERBOSE_GPS false
 #define VERBOSE_ENC false
 #define VERBOSE_ACC true
+#define VERBOSE_POS true
 
 /*CONSTANTES*/
 #define WHEEL_AXIS 	0.057 		// Distance between the two wheels in meter
@@ -76,6 +77,7 @@ double last_gps_time_s = 0.0f;
 
 static void controller_get_acc();
 static void controller_get_encoder();
+static void controller_get_gps();
 
 void init_devices(int ts);
 
@@ -244,7 +246,7 @@ int main()
       Kalman_Filter();
       
       if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g\n", _robot.pos.x , _robot.pos.y);
-      
+    } 
 
    
   // Use one of the two trajectories.

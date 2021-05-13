@@ -40,8 +40,6 @@ typedef struct
   double left_enc;
   double prev_right_enc;
   double right_enc;
-  double speed_odo[2];
-  double acc_odo[2];
 
 } measurement_t;
 
@@ -261,7 +259,7 @@ int main()
 
       if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
     }
-
+    
     controller_print_log();
 
   // Use one of the two trajectories.
@@ -310,9 +308,6 @@ void controller_get_encoder()
   double speed_wx = speed * cos(a);
   double speed_wy = speed * sin(a);
 
-  //Enregistrement vitesse pour Kalman
-  _meas.speed_odo[0]=speed_wx;
-  _meas.speed_odo[1]=speed_wy;
 
   //A enlever à terme
   _robot.speed.x = speed_wx;
@@ -355,11 +350,9 @@ void controller_get_acc()
   ///////////////////////
 
   double delta_heading = _robot.pos.heading - heading_tmp;
-  _meas.acc_odo[0] = accfront * cos(_robot.pos.heading);
-  _meas.acc_odo[1] = accfront * sin(_robot.pos.heading);
 
-  _robot.acc.x=_meas.acc_odo[0];
-  _robot.acc.y=_meas.acc_odo[1];
+  _robot.acc.x= accfront * cos(_robot.pos.heading);
+  _robot.acc.y= accfront * sin(_robot.pos.heading);
 
   double spxtmp = _robot.speed.x;
   double spytmp = _robot.speed.y;

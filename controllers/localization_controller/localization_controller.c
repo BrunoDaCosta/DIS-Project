@@ -17,7 +17,7 @@
 #define VERBOSE_ENC false
 #define VERBOSE_ACC false
 
-#define VERBOSE_POS true
+#define VERBOSE_POS false
 #define VERBOSE_ACC_MEAN false
 #define VERBOSE_KF false
 
@@ -62,6 +62,9 @@ WbDeviceTag dev_right_encoder;
 WbDeviceTag dev_left_motor;
 WbDeviceTag dev_right_motor;
 
+// TO REMOVE !!!!
+WbDeviceTag actual_pos;
+
 //-----------------------------------------------------------------------------------//
 /*VARIABLES*/
 static measurement_t  _meas;
@@ -93,7 +96,10 @@ void init_devices(int ts);
 void init_devices(int ts) {
   dev_gps = wb_robot_get_device("gps");
   wb_gps_enable(dev_gps, 1000);
-  //wb_gps_enable(dev_gps, 1);
+  
+  // TO REMOVE !!!!
+  actual_pos = wb_robot_get_device("gps");
+  wb_gps_enable(actual_pos, 1);
 
   dev_acc = wb_robot_get_device("accelerometer");
   wb_accelerometer_enable(dev_acc, ts);
@@ -131,7 +137,8 @@ void KF_Update_Cov_Matrix(double ts){
   double A_cov_AT[MMS][MMS];
   double ts_R[MMS][MMS];
 
-  //print_matrix(KF_cov, 4,4);
+ // if (DEBUG_PRINT)
+    //print_matrix(KF_cov, 4,4);
 
   mult(A,KF_cov,A_cov,4,4,4,4);
   transp(A,AT,4,4);
@@ -139,8 +146,7 @@ void KF_Update_Cov_Matrix(double ts){
 
   scalar_mult(ts, R, ts_R, 4, 4);
   add(A_cov_AT, ts_R, KF_cov, 4,4,4,4);
-
-  //print_matrix(KF_cov, 4,4);
+  
 }
 
 
@@ -152,6 +158,7 @@ void Kalman_Filter(){
   X[3][0]=_robot.speed.y;
   
   if (VERBOSE_KF){
+    printf("______________________________________________\n");
     printf("Before\n");
     printf("Cov matrix\n");
     print_matrix(KF_cov, 4,4);
@@ -177,7 +184,7 @@ void Kalman_Filter(){
 
   transp(C, temp1, 2, 4);
   mult(KF_cov,temp1,cov_Ct,4,4,4,2);
-  mult(C,cov_Ct,temp1,2,4,4,2);
+  mult(C,cov_Ct,temp1,2,4,4,2); 
   add(temp1, Q, temp2, 2,2,2,2);
   inv(temp2, temp1);
   mult(cov_Ct,temp1,K,4,2,2,2);
@@ -187,13 +194,13 @@ void Kalman_Filter(){
   add(Z, temp1, temp2, 2,1,2,1);
   mult(K, temp2, temp1, 4,2,2,1);
   add(X, temp1, X_new, 4,1,4,1);
-
+   
   mult(K,C,temp1, 4,2,2,4);
   scalar_mult(-1, temp1, temp2, 4,4);
   add(eye4, temp2, temp1, 4,4,4,4);
   mult(KF_cov, temp1, temp2, 4,4,4,4);
   copy_matrix(temp2, KF_cov, 4,4);
-  
+    
   _robot.pos.x   = X_new[0][0];
   _robot.pos.y   = X_new[1][0];
   _robot.speed.x = X_new[2][0];
@@ -293,7 +300,7 @@ void controller_get_encoder()
   deltaleft  *= WHEEL_RADIUS;
   deltaright *= WHEEL_RADIUS;
 
-  double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step );
+  double omega = - ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step ); //ADDED MINUS TO TEST --JEREMY
   double speed = ( deltaright + deltaleft ) / ( 2.0 * time_step );
 
   double a = _robot.pos.heading;
@@ -394,11 +401,13 @@ void controller_get_gps(){
  */
 void controller_print_log()
 {
-
+  // TO REMOVE !!!!
+  const double * gps_position = wb_gps_get_values(actual_pos);
+  
   if( fp != NULL){
-    fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g;\n",
-            wb_robot_get_time(), _robot.pos.x, _robot.pos.y , _robot.pos.heading, _meas.gps[0], _meas.gps[1],
-             _robot.speed.x, _robot.speed.y, _robot.acc.x, _robot.acc.y);
+    fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
+            wb_robot_get_time(), _robot.pos.x, _robot.pos.y , _robot.pos.heading, _meas.gps[0], _meas.gps[2],
+             _robot.speed.x, _robot.speed.y, _robot.acc.x, _robot.acc.y, gps_position[0], gps_position[2]);
   }
 }
 
@@ -414,7 +423,7 @@ bool controller_init_log(const char* filename){
   bool err = (fp == NULL);
 
   if( !err ){
-    fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; speed_x; speed_y; acc_x; acc_y\n");
+    fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; speed_x; speed_y; acc_x; acc_y; actual_pos_x; actual_pos_y\n");
   }
   return err;
 }

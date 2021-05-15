@@ -21,7 +21,7 @@
 #define VERBOSE_ACC_MEAN false
 #define VERBOSE_KF false
 
-#define ODOMETRY_ACC false
+#define ODOMETRY_ACC true
 #define ACTIVATE_KALMAN true
 
 
@@ -321,12 +321,8 @@ void controller_get_acc()
   memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
 
   double accfront = ( _meas.acc[1] - _meas.acc_mean[1]);
-  double accside = ( _meas.acc[0] - _meas.acc_mean[0]);
-  /*printf(" \n \n");
-  printf("ROBOT acc now : front: %g  side: %g \n", _meas.acc[1], _meas.acc[0]);
-  printf("ROBOT acc mea : front: %g  side: %g \n", _meas.acc_mean[1], _meas.acc_mean[0]);
-  printf("ROBOT acc tot : front: %g  side: %g \n", accfront, accside);
-  printf(" \n \n");*/
+  //double accside = ( _meas.acc[0] - _meas.acc_mean[0]);
+  
 
   double heading_tmp = _robot.pos.heading;
   ///////HEADING/////////

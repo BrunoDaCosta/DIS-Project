@@ -1485,6 +1485,8 @@ DEF ROBOT1 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "supervisor"
+  controllerArgs ["0", "25", "-25"]
+  supervisor TRUE
   cpuConsumption 1.11
 }

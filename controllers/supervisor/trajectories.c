@@ -65,7 +65,7 @@ void trajectory_1(WbDeviceTag dev_left_motor, WbDeviceTag dev_right_motor, doubl
    }
 }
 
-void trajectory_2(WbDeviceTag dev_left_motor, WbDeviceTag dev_right_motor) {
+void trajectory_2(WbDeviceTag dev_left_motor, WbDeviceTag dev_right_motor, double time_end_calibration) {
 // ## DO NOT MODIFY THIS
   double t = wb_robot_get_time();
    if (t > 0.0 && t < 3.0) {

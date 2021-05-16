@@ -7,11 +7,9 @@
 #include <webots/accelerometer.h>
 #include <webots/position_sensor.h>
 
-#include "trajectories.h"
 #include "odometry.h"
-
+#include "trajectories.h"
 #include "utils.h"
-
 
 #define VERBOSE_GPS false
 #define VERBOSE_ENC false
@@ -21,7 +19,7 @@
 #define VERBOSE_ACC_MEAN false
 #define VERBOSE_KF false
 
-#define ODOMETRY_ACC true
+#define ODOMETRY_ACC false
 #define ACTIVATE_KALMAN true
 
 
@@ -47,6 +45,7 @@ typedef struct
 
 typedef struct
 {
+  float supervisor[3];
   pose_t pos;
   pose_t speed;
   pose_t acc;
@@ -77,7 +76,7 @@ static double KF_cov[MMS][MMS]={{0.001, 0, 0, 0},
                                 {0, 0, 0, 0.001}};
 //static motor_t        _motor = {false, true, true, MAX_SPEED / 4.0};
 double last_gps_time_s = 0.0f;
-
+double time_end_calibration = 0;
 
 static FILE *fp;
 
@@ -221,7 +220,14 @@ void Kalman_Filter(){
 
 int main()
 {
-  if (controller_init_log("test1.csv")) return 1;
+  if(ODOMETRY_ACC)
+  {
+    if (controller_init_log("odoacc.csv")) return 1;
+  }
+  else
+  {
+    if (controller_init_log("odoenc.csv")) return 1;
+  }
   _robot.pos.x = -2.9;
   _robot.pos.y = 0;
   _robot.pos.heading = 0;
@@ -236,6 +242,7 @@ int main()
     if(ODOMETRY_ACC){
       if(wb_robot_get_time() < TIME_INIT_ACC){
         controller_compute_mean_acc();
+        time_end_calibration = wb_robot_get_time();
         continue;
       }
       else
@@ -254,17 +261,19 @@ int main()
       last_gps_time_s = time_now_s;
       controller_get_gps();
       if (VERBOSE_POS)  printf("ROBOT pose: %g %g %g\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
-      
+      //printf("ACC1: %g %g %g\n", _robot.acc.x , _robot.acc.y, _robot.acc.heading);
       Kalman_Filter();
+      //printf("ACC2: %g %g %g\n", _robot.acc.x , _robot.acc.y, _robot.acc.heading);
 
       if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
     }
-    
+    //_robot.supervisor.y = wb_supervisor_field_get_sf_vec3f(robs_trans[i])[2]; // Z
+    //_robot.supervisor.heading = wb_supervisor_field_get_sf_rotation(robs_rotation[i])[3]; // THETA
     controller_print_log();
 
   // Use one of the two trajectories.
-    trajectory_1(dev_left_motor, dev_right_motor);
-//    trajectory_2(dev_left_motor, dev_right_motor);
+    trajectory_1(dev_left_motor, dev_right_motor,time_end_calibration);
+//    trajectory_2(dev_left_motor, dev_right_motor,time_end_calibration);
   }
   
   // Close the log file

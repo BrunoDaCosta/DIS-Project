@@ -223,10 +223,12 @@ int main()
   if(ODOMETRY_ACC)
   {
     if (controller_init_log("odoacc.csv")) return 1;
+    printf("Use of odometry with accelerometers \n");
   }
   else
   {
     if (controller_init_log("odoenc.csv")) return 1;
+    printf("Use of odometry with encoders \n");
   }
   _robot.pos.x = -2.9;
   _robot.pos.y = 0;

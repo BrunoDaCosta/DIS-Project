@@ -11,14 +11,12 @@
 #include <webots/supervisor.h>
 
 #define FLOCK_SIZE	1		// Number of robots in flock
-#define TIME_STEP	64		// [ms] Length of time step
+//#define TIME_STEP	64		// [ms] Length of time step
 
 WbNodeRef robs[FLOCK_SIZE];		// Robots nodes
 WbFieldRef robs_trans[FLOCK_SIZE];	// Robots translation fields
 WbFieldRef robs_rotation[FLOCK_SIZE];	// Robots rotation fields
 WbDeviceTag emitter;	
-WbDeviceTag dev_left_motor;
-WbDeviceTag dev_right_motor;		// Single emitter
 
 float loc[FLOCK_SIZE][3];		// Location of everybody in the flock
 
@@ -41,12 +39,6 @@ void reset(void) {
 
 	emitter = wb_robot_get_device("emitter");
 	if (emitter==0) printf("missing emitter\n");
-	dev_left_motor = wb_robot_get_device("left wheel motor");
-           dev_right_motor = wb_robot_get_device("right wheel motor");
-           wb_motor_set_position(dev_left_motor, INFINITY);
-           wb_motor_set_position(dev_right_motor, INFINITY);
-           wb_motor_set_velocity(dev_left_motor, 0.0);
-           wb_motor_set_velocity(dev_right_motor, 0.0);
 	
 	char rob[] = "e-puck";
 	int i;
@@ -77,7 +69,7 @@ void send_init_poses(void) {
 		wb_emitter_send(emitter,buffer,strlen(buffer));
 
 		// Run one step
-		wb_robot_step(TIME_STEP);
+		//wb_robot_step(time_step);
 	}
 }
 
@@ -119,8 +111,9 @@ void controller_print_log()
   // TO REMOVE !!!!
   
   if( fp != NULL){
-    fprintf(fp, "%g; %g; %g; %g\n",
-            wb_robot_get_time(), loc[0][0], loc[0][1] , loc[0][2]);
+    for (int i=0;i<FLOCK_SIZE;i++) {
+       fprintf(fp, "%g; %g; %g; %g\n", wb_robot_get_time(), loc[i][0], loc[i][1] , loc[i][2]);
+            }
   }
 }
 
@@ -128,32 +121,13 @@ void controller_print_log()
  * Main function.
  */
  
-int main(int argc, char *args[]) {
+int main() {
            if (controller_init_log("super.csv")) return 1;
            wb_robot_init();
            int time_step = wb_robot_get_basic_time_step();
 	char buffer[255];	// Buffer for sending data
 	int i;			// Index
-           printf("Value: %d \n", argc);
-           printf("args: %s \n", args[1]);
-           printf("args: %s \n", args[2]);
-           printf("args: %s \n", args[3]);
-	if (argc == 4) { // Get parameters
-		offset = atoi(args[1]);
-		migrx = atof(args[2]);
-		migrz = atof(args[3]);
-		//migration goal point comes from the controller arguments. It is defined in the world-file, under "controllerArgs" of the supervisor.
-		printf("Migratory instinct : (%f, %f)\n", migrx, migrz);
-	} else {
-		printf("Missing argument\n");
-		return 1;
-	}
 	
-	orient_migr = -atan2f(migrx,migrz);
-	if (orient_migr<0) {
-		orient_migr+=2*M_PI; // Keep value within 0, 2pi
-	}
-
 	reset();
 
 	send_init_poses();
@@ -169,7 +143,7 @@ int main(int argc, char *args[]) {
 		if (t % 10 == 0) {
 			for (i=0;i<FLOCK_SIZE;i++) {
 				// Get data
-                                  	loc[i][0] = wb_supervisor_field_get_sf_vec3f(robs_trans[i])[0]; // X
+                                    	loc[i][0] = wb_supervisor_field_get_sf_vec3f(robs_trans[i])[0]; // X
 				loc[i][1] = wb_supervisor_field_get_sf_vec3f(robs_trans[i])[2]; // Z
 				loc[i][2] = wb_supervisor_field_get_sf_rotation(robs_rotation[i])[3]; // THETA
 				
@@ -183,9 +157,8 @@ int main(int argc, char *args[]) {
 			fit_orient = 1-fit_orient/M_PI;
 			printf("time:%d, Topology Performance: %f\n", t, fit_cluster);			
 		}
-                      trajectory_1(dev_left_motor, dev_right_motor, 0.);
                       controller_print_log();
-		t += TIME_STEP;
+		t += time_step;
 	}
 	  
           // Close the log file

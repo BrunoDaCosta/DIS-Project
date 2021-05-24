@@ -35,7 +35,7 @@ void reset(void) {
 	wb_robot_init();
 
 	char rob[7] = "epuck0";
-	char emitter0[8] = "Emitter";
+	char emitter0[8] = "emitter";
 	int i;
 	robs[0] = wb_supervisor_node_get_from_def(rob);
 	robs_translation[0] = wb_supervisor_node_get_field(robs[0],"translation");

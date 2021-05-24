@@ -31,7 +31,7 @@ WbDeviceTag emitter;                  // Handle for the emitter node
 void reset(void) {
 	wb_robot_init();
 
-	emitter = wb_robot_get_device("Emitter");
+	emitter = wb_robot_get_device("emitter");
 
 	/*Webots 2018b*/
 	//get motors

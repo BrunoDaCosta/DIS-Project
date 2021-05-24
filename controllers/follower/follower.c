@@ -53,7 +53,7 @@ float leader_orientation = 0.0;
 static void reset(void) {
 	wb_robot_init();
 
-	receiver    = wb_robot_get_device("receiver");
+	receiver = wb_robot_get_device("receiver");
 
 	/*Webots 2018b*/
 	//get motors

@@ -103,7 +103,12 @@ DEF long_rock_3 Solid {
   }
 }
 DEF SUPERVISOR Robot {
-  controller ""
+  controller "supervisor_the_Jeremy_cut"
+  controllerArgs [
+    "0"
+    "25"
+    "-25"
+  ]
   supervisor TRUE
 }
 DEF ROBOT1 Robot {
@@ -1485,8 +1490,7 @@ DEF ROBOT1 Robot {
       0 0 0
     ]
   }
-  controller "supervisor"
-  controllerArgs ["0", "25", "-25"]
+  controller "localization_controller"
   supervisor TRUE
   cpuConsumption 1.11
 }

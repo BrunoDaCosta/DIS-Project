@@ -106,9 +106,10 @@ void compute_fitness(float* fit_c, float* fit_o) {
 }
 
 bool controller_init_log(const char* filename){
+
   fp = fopen(filename,"w");
   bool err = (fp == NULL);
-
+  
   if( !err ){
     fprintf(fp, "time; pose_x; pose_y; pose_heading \n");
   }

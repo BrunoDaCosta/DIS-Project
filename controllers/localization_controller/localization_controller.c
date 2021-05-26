@@ -20,7 +20,7 @@
 #define VERBOSE_KF false
 
 #define ODOMETRY_ACC false
-#define ACTIVATE_KALMAN true
+#define ACTIVATE_KALMAN false
 
 
 /*CONSTANTES*/
@@ -95,10 +95,6 @@ void init_devices(int ts);
 void init_devices(int ts) {
   dev_gps = wb_robot_get_device("gps");
   wb_gps_enable(dev_gps, 1000);
-  
-  // TO REMOVE !!!!
-  actual_pos = wb_robot_get_device("gps");
-  wb_gps_enable(actual_pos, 1);
 
   dev_acc = wb_robot_get_device("accelerometer");
   wb_accelerometer_enable(dev_acc, ts);
@@ -409,14 +405,11 @@ void controller_get_gps(){
  * @param[in]  time  The time
  */
 void controller_print_log()
-{
-  // TO REMOVE !!!!
-  const double * gps_position = wb_gps_get_values(actual_pos);
-  
+{  
   if( fp != NULL){
-    fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
+    fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
             wb_robot_get_time(), _robot.pos.x, _robot.pos.y , _robot.pos.heading, _meas.gps[0], _meas.gps[2],
-             _robot.speed.x, _robot.speed.y, _robot.acc.x, _robot.acc.y, gps_position[0], gps_position[2]);
+             _robot.speed.x, _robot.speed.y, _robot.acc.x, _robot.acc.y);
   }
 }
 

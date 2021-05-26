@@ -1,3 +1,7 @@
 
 controllers/localization_controller/localization_controller.exe
 controllers/localization_controller/localization_controller.exe
+controllers/flocking/Makefile
+controllers/flocking/flocking.exe
+controllers/flocking/build
+controllers/flocking/odoenc.csv

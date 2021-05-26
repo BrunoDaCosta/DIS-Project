@@ -63,11 +63,14 @@ typedef struct
   float supervisor[3];
   int id;
   pose_t pos;
+  pose_t prev_pos;
   pose_t speed;
   pose_t acc;
   pose_t rel_pos;
   pose_t prev_rel_pos;
   pose_t rel_speed;
+
+  int initialized;
 }robot_t;
 
 
@@ -87,7 +90,7 @@ static int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_S
 //-----------------------------------------------------------------------------------//
 /*VARIABLES*/
 static measurement_t  _meas;
-static robot_t[FLOCK_SIZE] robot_flock;
+static robot_t rf[FLOCK_SIZE];
 //static pose_t         _robot_init_pos;
 
 // static double KF_cov[MMS][MMS]={{0.001, 0, 0, 0},
@@ -99,7 +102,6 @@ double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
 int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
-
 static FILE *fp;
 
 //-----------------------------------------------------------------------------------//
@@ -159,9 +161,9 @@ void init_devices(int ts){
   sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
   robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
 
-  // for(i=0; i<FLOCK_SIZE; i++) {
-    // initialized[i] = 1; 		  // Set initialization to 0 (= not yet initialized)
-  // }
+  for(i=0; i<FLOCK_SIZE; i++) {
+      rf[i].initialized = 0; 		  // Set initialization to 0 (= not yet initialized)
+  }
 
   printf("Init: robot %d\n",robot_id_u);
 }
@@ -209,11 +211,12 @@ int main()
     if (controller_init_log("odoenc.csv")) return 1;
     printf("Use of odometry with encoders \n");
   }
-  _robot.pos.x = -2.9;
-  _robot.pos.y = 0;
-  _robot.pos.heading = 0;
-  _robot.speed.x = 0;
-  _robot.speed.y = 0;
+
+  rf[robot_id].pos.x = -2.9;
+  rf[robot_id].pos.y = 0;
+  rf[robot_id].pos.heading = 0;
+  rf[robot_id].speed.x = 0;
+  rf[robot_id].speed.y = 0;
 
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
@@ -223,11 +226,11 @@ int main()
     odometry_update(time_step);
     controller_print_log();
 
-    get_data();
-
+    get_data(time_step);
 
     braitenberg(&bmsl, &bmsr);
 
+    sprintf(outbuffer,"%1d#%f#%f#%f",robot_id,rf[robot_id].pos.x,rf[robot_id].pos.y, rf[robot_id].pos.heading);
     wb_emitter_send(emitter,outbuffer,strlen(outbuffer));
   // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor,time_end_calibration);
@@ -266,12 +269,12 @@ void odometry_update(int time_step){
   if (ACTIVATE_KALMAN &&   time_now_s - last_gps_time_s >= 1.0f){
     last_gps_time_s = time_now_s;
     controller_get_gps();
-    if (VERBOSE_POS)  printf("ROBOT pose: %g %g %g\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
-    //printf("ACC1: %g %g %g\n", _robot.acc.x , _robot.acc.y, _robot.acc.heading);
-    Kalman_Filter(&_robot.pos.x , &_robot.pos.y, &_robot.speed.x, &_robot.speed.x, &_meas.gps[0], &_meas.gps[1]);
+    if (VERBOSE_POS)  printf("ROBOT pose: %g %g %g\n", rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading);
+    //printf("ACC1: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
+    Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].speed.x, &rf[robot_id].speed.x, &_meas.gps[0], &_meas.gps[1]);
     //print_cov_matrix();
-    //printf("ACC2: %g %g %g\n", _robot.acc.x , _robot.acc.y, _robot.acc.heading);
-    if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
+    //printf("ACC2: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
+    if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading);
     }
 }
 
@@ -300,21 +303,21 @@ void controller_get_encoder()
   double omega = - ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step ); //ADDED MINUS TO TEST --JEREMY
   double speed = ( deltaright + deltaleft ) / ( 2.0 * time_step );
 
-  double a = _robot.pos.heading;
+  double a = rf[robot_id].pos.heading;
 
   double speed_wx = speed * cos(a);
   double speed_wy = speed * sin(a);
 
 
   //A enlever à terme
-  _robot.speed.x = speed_wx;
-  _robot.speed.y = speed_wy;
-  _robot.pos.x += _robot.speed.x * time_step;
-  _robot.pos.y += _robot.speed.y * time_step;
-  _robot.pos.heading += omega * time_step;
+  rf[robot_id].speed.x = speed_wx;
+  rf[robot_id].speed.y = speed_wy;
+  rf[robot_id].pos.x += rf[robot_id].speed.x * time_step;
+  rf[robot_id].pos.y += rf[robot_id].speed.y * time_step;
+  rf[robot_id].pos.heading += omega * time_step;
 
   if(VERBOSE_ENC)
-    printf("ROBOT enc : x: %g  y: %g heading: %g\n", _robot.pos.x, _robot.pos.y, _robot.pos.heading);
+    printf("ROBOT enc : x: %g  y: %g heading: %g\n", rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
 }
 
 void controller_get_acc()
@@ -328,7 +331,7 @@ void controller_get_acc()
   //double accside = ( _meas.acc[0] - _meas.acc_mean[0]);
 
 
-  double heading_tmp = _robot.pos.heading;
+  double heading_tmp = rf[robot_id].pos.heading;
   ///////HEADING/////////
   _meas.prev_left_enc = _meas.left_enc;
   _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
@@ -339,23 +342,23 @@ void controller_get_acc()
   deltaleft  *= WHEEL_RADIUS;
   deltaright *= WHEEL_RADIUS;
   double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step );
-  _robot.pos.heading += omega * time_step;
+  rf[robot_id].pos.heading += omega * time_step;
   ///////////////////////
 
-  double delta_heading = _robot.pos.heading - heading_tmp;
+  double delta_heading = rf[robot_id].pos.heading - heading_tmp;
 
-  _robot.acc.x= accfront * cos(_robot.pos.heading);
-  _robot.acc.y= accfront * sin(_robot.pos.heading);
+  rf[robot_id].acc.x= accfront * cos(rf[robot_id].pos.heading);
+  rf[robot_id].acc.y= accfront * sin(rf[robot_id].pos.heading);
 
-  double spxtmp = _robot.speed.x;
-  double spytmp = _robot.speed.y;
-  _robot.speed.x = cos(delta_heading)*spxtmp - sin(delta_heading)*spytmp + _robot.acc.x * time_step/ 1000.0;
-  _robot.speed.y = sin(delta_heading)*spxtmp + cos(delta_heading)*spytmp + _robot.acc.y * time_step/ 1000.0;
-  _robot.pos.x += _robot.speed.x * time_step/ 1000.0;
-  _robot.pos.y += _robot.speed.y * time_step/ 1000.0;
+  double spxtmp = rf[robot_id].speed.x;
+  double spytmp = rf[robot_id].speed.y;
+  rf[robot_id].speed.x = cos(delta_heading)*spxtmp - sin(delta_heading)*spytmp + rf[robot_id].acc.x * time_step/ 1000.0;
+  rf[robot_id].speed.y = sin(delta_heading)*spxtmp + cos(delta_heading)*spytmp + rf[robot_id].acc.y * time_step/ 1000.0;
+  rf[robot_id].pos.x += rf[robot_id].speed.x * time_step/ 1000.0;
+  rf[robot_id].pos.y += rf[robot_id].speed.y * time_step/ 1000.0;
 
   if(VERBOSE_ACC)
-    printf("ROBOT acc : x: %g  y: %g heading: %g\n", _robot.pos.x, _robot.pos.y, _robot.pos.heading);
+    printf("ROBOT acc : x: %g  y: %g heading: %g\n", rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
 
 
 }
@@ -400,8 +403,8 @@ void controller_print_log()
 {
   if( fp != NULL){
     fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
-            wb_robot_get_time(), _robot.pos.x, _robot.pos.y , _robot.pos.heading, _meas.gps[0], _meas.gps[2],
-             _robot.speed.x, _robot.speed.y, _robot.acc.x, _robot.acc.y);
+            wb_robot_get_time(), rf[robot_id].pos.x, rf[robot_id].pos.y , rf[robot_id].pos.heading, _meas.gps[0], _meas.gps[2],
+             rf[robot_id].speed.x, rf[robot_id].speed.y, rf[robot_id].acc.x, rf[robot_id].acc.y);
   }
 }
 
@@ -426,39 +429,39 @@ bool controller_init_log(const char* filename){
  * @brief      Get data from other robots
  */
 
-void get_data(){
+void get_data(int time_step){
     // Get information
     int count = 0;
     char *inbuffer;
     int rob_nb;			// Robot number
-    float rob_x, rob_z, rob_theta;  // Robot position and orientation
+    float rob_x, rob_y, rob_theta;  // Robot position and orientation
 
     while (wb_receiver_get_queue_length(receiver) > 0 && count < FLOCK_SIZE){
         inbuffer = (char*) wb_receiver_get_data(receiver);
-        sscanf(inbuffer,"%d#%f#%f#%f",&rob_nb,&rob_x,&rob_z,&rob_theta);
+        sscanf(inbuffer,"%d#%f#%f#%f",&rob_nb,&rob_x,&rob_y,&rob_theta);
 
         if ((int) rob_nb/FLOCK_SIZE == (int) robot_id/FLOCK_SIZE) {
             rob_nb %= FLOCK_SIZE;
-            if (initialized[rob_nb] == 0) {
+            if (rf[rob_nb].initialized == 0) {
                 // Get initial positions
-                loc[rob_nb][0] = rob_x; //x-position
-                loc[rob_nb][1] = rob_z; //z-position
-                loc[rob_nb][2] = rob_theta; //theta
-                prev_loc[rob_nb][0] = loc[rob_nb][0];
-                prev_loc[rob_nb][1] = loc[rob_nb][1];
-                initialized[rob_nb] = 1;
+                rf[rob_nb].pos.x = rob_x; //x-position
+                rf[rob_nb].pos.y = rob_y; //z-position
+                rf[rob_nb].pos.heading = rob_theta; //theta
+                rf[rob_nb].prev_pos.x = rob_x;
+                rf[rob_nb].prev_pos.y = rob_y;
+                rf[rob_nb].initialized = 1;
             } else {
                 // Get position update
-                //				printf("\n got update robot[%d] = (%f,%f) \n",rob_nb,loc[rob_nb][0],loc[rob_nb][1]);
-                prev_loc[rob_nb][0] = loc[rob_nb][0];
-                prev_loc[rob_nb][1] = loc[rob_nb][1];
-                loc[rob_nb][0] = rob_x; //x-position
-                loc[rob_nb][1] = rob_z; //z-position
-                loc[rob_nb][2] = rob_theta; //theta
+                printf("\n got update robot[%d] = (%f,%f) \n",rob_nb,rf[rob_nb].pos.x,rf[rob_nb].pos.y);
+                rf[rob_nb].prev_pos.x = rf[rob_nb].pos.x;
+                rf[rob_nb].prev_pos.y = rf[rob_nb].pos.y;
+                rf[rob_nb].pos.x = rob_x;
+                rf[rob_nb].pos.y = rob_y;
+                rf[rob_nb].pos.heading = rob_theta;
             }
 
-            speed[rob_nb][0] = (1/DELTA_T)*(loc[rob_nb][0]-prev_loc[rob_nb][0]);
-            speed[rob_nb][1] = (1/DELTA_T)*(loc[rob_nb][1]-prev_loc[rob_nb][1]);
+            rf[rob_nb].speed.x = ((double) 1/time_step)*(rf[rob_nb].pos.x-rf[rob_nb].prev_pos.x);
+            rf[rob_nb].speed.y = ((double) 1/time_step)*(rf[rob_nb].pos.y-rf[rob_nb].prev_pos.y);
             count++;
             }
 			wb_receiver_next_packet(receiver);

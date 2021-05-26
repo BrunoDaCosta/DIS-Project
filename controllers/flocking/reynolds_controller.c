@@ -10,8 +10,10 @@
 #include <webots/emitter.h>
 #include <webots/receiver.h>
 
+#include "kalman.h"
 #include "trajectories.h"
 #include "utils.h"
+
 
 
 
@@ -22,7 +24,7 @@
 
 #define VERBOSE_POS false
 #define VERBOSE_ACC_MEAN false
-#define VERBOSE_KF false
+// #define VERBOSE_KF false
 
 // Odometry type
 #define ODOMETRY_ACC false
@@ -59,11 +61,14 @@ typedef struct
 typedef struct
 {
   float supervisor[3];
+  int id;
   pose_t pos;
   pose_t speed;
   pose_t acc;
-  int id;
-} robot_t;
+  pose_t rel_pos;
+  pose_t prev_rel_pos;
+  pose_t rel_speed;
+}robot_t;
 
 
 
@@ -82,13 +87,13 @@ static int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_S
 //-----------------------------------------------------------------------------------//
 /*VARIABLES*/
 static measurement_t  _meas;
-static robot_t        _robot;
-static pose_t         _robot_init_pos;
+static robot_t[FLOCK_SIZE] robot_flock;
+//static pose_t         _robot_init_pos;
 
-static double KF_cov[MMS][MMS]={{0.001, 0, 0, 0},
-                                {0, 0.001, 0, 0},
-                                {0, 0, 0.001, 0},
-                                {0, 0, 0, 0.001}};
+// static double KF_cov[MMS][MMS]={{0.001, 0, 0, 0},
+//                                 {0, 0.001, 0, 0},
+//                                 {0, 0, 0.001, 0},
+//                                 {0, 0, 0, 0.001}};
 //static motor_t        _motor = {false, true, true, MAX_SPEED / 4.0};
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
@@ -109,9 +114,11 @@ static bool controller_init_log(const char* filename);
 
 static void odometry_update(int time_step);
 
+void get_data();
+
 void init_devices(int ts);
 
-void init_devices(int ts) {
+void init_devices(int ts){
   // GPS
   dev_gps = wb_robot_get_device("gps");
   wb_gps_enable(dev_gps, 1000);
@@ -131,8 +138,8 @@ void init_devices(int ts) {
   wb_motor_set_position(dev_right_motor, INFINITY);
   wb_motor_set_velocity(dev_left_motor, 0.0);
   wb_motor_set_velocity(dev_right_motor, 0.0);
-  
-  // Communication 
+
+  // Communication
   receiver = wb_robot_get_device("receiver");
   emitter = wb_robot_get_device("emitter");
   int i;
@@ -141,130 +148,31 @@ void init_devices(int ts) {
     ds[i]=wb_robot_get_device(s); // the device name is specified in the world file
     s[2]++;			 // increases the device number
   }
-  char* robot_name; 
-  robot_name=(char*) wb_robot_get_name(); 
+  char* robot_name;
+  robot_name=(char*) wb_robot_get_name();
 
   for(i=0;i<NB_SENSORS;i++) {
     wb_distance_sensor_enable(ds[i],64);
   }
   wb_receiver_enable(receiver,64);
-  
+
   sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
   robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
-  
+
   // for(i=0; i<FLOCK_SIZE; i++) {
     // initialized[i] = 1; 		  // Set initialization to 0 (= not yet initialized)
   // }
-  
+
   printf("Init: robot %d\n",robot_id_u);
 }
 
 
-
-
-
-
-void KF_Update_Cov_Matrix(double ts){
-  double A[MMS][MMS]={{1, 0, ts, 0},
-                      {0, 1, 0, ts},
-                      {0, 0, 1, 0 },
-                      {0, 0, 0, 1 }};
-
-  double R[MMS][MMS]={{0.05, 0, 0, 0},
-                      {0, 0.05, 0, 0},
-                      {0, 0, 0.01, 0},
-                      {0, 0, 0, 0.01}};
-
-  double A_cov[MMS][MMS];
-  double AT[MMS][MMS];
-  double A_cov_AT[MMS][MMS];
-  double ts_R[MMS][MMS];
-
- // if (DEBUG_PRINT)
-    //print_matrix(KF_cov, 4,4);
-
-  mult(A,KF_cov,A_cov,4,4,4,4);
-  transp(A,AT,4,4);
-  mult(A_cov, AT, A_cov_AT, 4,4,4,4);
-
-  scalar_mult(ts, R, ts_R, 4, 4);
-  add(A_cov_AT, ts_R, KF_cov, 4,4,4,4);
-  
-}
-
-
-void Kalman_Filter(){
-  static double X[MMS][MMS];
-  X[0][0]=_robot.pos.x;
-  X[1][0]=_robot.pos.y;
-  X[2][0]=_robot.speed.x;
-  X[3][0]=_robot.speed.y;
-  
-  if (VERBOSE_KF){
-    printf("______________________________________________\n");
-    printf("Before\n");
-    printf("Cov matrix\n");
-    print_matrix(KF_cov, 4,4);
-    printf("X matrix\n");
-    print_matrix(X, 4,1);
-  }
-
-  static double C[MMS][MMS]={{1, 0, 0, 0},
-                             {0, 1, 0, 0}};
-  static double Q[MMS][MMS]={{1, 0},{0, 1}};
-
-  static double Z[MMS][MMS];
-  Z[0][0] = _meas.gps[0];
-  Z[1][0] = _meas.gps[2];
-
-  static double X_new[MMS][MMS];
-
-  static double K[MMS][MMS];
-  static double temp1[MMS][MMS];
-  static double temp2[MMS][MMS];
-  static double cov_Ct[MMS][MMS];
-  static double eye4[MMS][MMS]={{1, 0, 0, 0},{0, 1, 0, 0},{0, 0, 1, 0},{0, 0, 0, 1}};
-
-  transp(C, temp1, 2, 4);
-  mult(KF_cov,temp1,cov_Ct,4,4,4,2);
-  mult(C,cov_Ct,temp1,2,4,4,2); 
-  add(temp1, Q, temp2, 2,2,2,2);
-  inv(temp2, temp1);
-  mult(cov_Ct,temp1,K,4,2,2,2);
-
-  mult(C, X, temp2, 2,4,4,1);
-  scalar_mult(-1, temp2, temp1, 2,1);
-  add(Z, temp1, temp2, 2,1,2,1);
-  mult(K, temp2, temp1, 4,2,2,1);
-  add(X, temp1, X_new, 4,1,4,1);
-   
-  mult(K,C,temp1, 4,2,2,4);
-  scalar_mult(-1, temp1, temp2, 4,4);
-  add(eye4, temp2, temp1, 4,4,4,4);
-  mult(KF_cov, temp1, temp2, 4,4,4,4);
-  copy_matrix(temp2, KF_cov, 4,4);
-    
-  _robot.pos.x   = X_new[0][0];
-  _robot.pos.y   = X_new[1][0];
-  _robot.speed.x = X_new[2][0];
-  _robot.speed.y = X_new[3][0];
-
-
-  if (VERBOSE_KF){
-    printf("After\n");
-    printf("Cov matrix\n");
-    print_matrix(KF_cov, 4,4);
-  
-    printf("X matrix\n");
-    print_matrix(X_new, 4,1);
-  }
-}
-
-void braitenberg(){
-  int bmsl = 0, bmsr = 0, sum_sensors = 0;	// Braitenberg parameters
+void braitenberg(int* bmsl, int* bmsr){
+  int sum_sensors = 0;	// Braitenberg parameters
   int i;				// Loop counter
   int distances[NB_SENSORS];	// Array for the distance sensor readings
   int max_sens = 0;			// Store highest sensor value
+  *bmsl=0; *bmsr=0;
 
   /* Braitenberg */
   for(i=0;i<NB_SENSORS;i++) {
@@ -273,16 +181,14 @@ void braitenberg(){
     max_sens = max_sens>distances[i]?max_sens:distances[i]; // Check if new highest sensor value
 
     // Weighted sum of distance sensor values for Braitenberg vehicle
-    bmsr += e_puck_matrix[i] * distances[i];
-    bmsl += e_puck_matrix[i+NB_SENSORS] * distances[i];
+    *bmsr += e_puck_matrix[i] * distances[i];
+    *bmsl += e_puck_matrix[i+NB_SENSORS] * distances[i];
   }
 
   // Adapt Braitenberg values (empirical tests)
-  bmsl/=MIN_SENS; bmsr/=MIN_SENS;
-  bmsl+=66; bmsr+=72;
+  *bmsl/=MIN_SENS; *bmsr/=MIN_SENS;
+  *bmsl+=66; *bmsr+=72;
 }
-
-
 
 int main()
 {
@@ -290,8 +196,9 @@ int main()
   int msl, msr;			// Wheel speeds
   float msl_w, msr_w;
   char *inbuffer;*/
+  int bmsl; int bmsr;
   char outbuffer[255];			// Buffer for the receiver node
-	
+
   if(ODOMETRY_ACC)
   {
     if (controller_init_log("odoacc.csv")) return 1;
@@ -313,25 +220,25 @@ int main()
   init_devices(time_step);
 
   while (wb_robot_step(time_step) != -1)  {
-  
     odometry_update(time_step);
-    
-    //_robot.supervisor.y = wb_supervisor_field_get_sf_vec3f(robs_trans[i])[2]; // Z
-    //_robot.supervisor.heading = wb_supervisor_field_get_sf_rotation(robs_rotation[i])[3]; // THETA
     controller_print_log();
-    
-    
+
+    get_data();
+
+
+    braitenberg(&bmsl, &bmsr);
+
     wb_emitter_send(emitter,outbuffer,strlen(outbuffer));
   // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor,time_end_calibration);
 //    trajectory_2(dev_left_motor, dev_right_motor,time_end_calibration);
     //wb_robot_step(TIME_STEP);
   }
-  
+
   // Close the log file
   if(fp != NULL)
     fclose(fp);
-    
+
    // End of the simulation
   wb_robot_cleanup();
 
@@ -350,9 +257,9 @@ void odometry_update(int time_step){
     controller_get_acc();
   }
   else{
-    controller_get_encoder();  
+    controller_get_encoder();
   }
-  
+
   KF_Update_Cov_Matrix((double) time_step/1000);
 
   double time_now_s = wb_robot_get_time();
@@ -361,7 +268,8 @@ void odometry_update(int time_step){
     controller_get_gps();
     if (VERBOSE_POS)  printf("ROBOT pose: %g %g %g\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
     //printf("ACC1: %g %g %g\n", _robot.acc.x , _robot.acc.y, _robot.acc.heading);
-    Kalman_Filter();
+    Kalman_Filter(&_robot.pos.x , &_robot.pos.y, &_robot.speed.x, &_robot.speed.x, &_meas.gps[0], &_meas.gps[1]);
+    //print_cov_matrix();
     //printf("ACC2: %g %g %g\n", _robot.acc.x , _robot.acc.y, _robot.acc.heading);
     if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
     }
@@ -418,7 +326,7 @@ void controller_get_acc()
 
   double accfront = ( _meas.acc[1] - _meas.acc_mean[1]);
   //double accside = ( _meas.acc[0] - _meas.acc_mean[0]);
-  
+
 
   double heading_tmp = _robot.pos.heading;
   ///////HEADING/////////
@@ -489,7 +397,7 @@ void controller_get_gps(){
  * @param[in]  time  The time
  */
 void controller_print_log()
-{  
+{
   if( fp != NULL){
     fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
             wb_robot_get_time(), _robot.pos.x, _robot.pos.y , _robot.pos.heading, _meas.gps[0], _meas.gps[2],
@@ -512,4 +420,49 @@ bool controller_init_log(const char* filename){
     fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; speed_x; speed_y; acc_x; acc_y; actual_pos_x; actual_pos_y\n");
   }
   return err;
+}
+
+/**
+ * @brief      Get data from other robots
+ */
+
+void get_data(){
+    // Get information
+    int count = 0;
+    char *inbuffer;
+    int rob_nb;			// Robot number
+    float rob_x, rob_z, rob_theta;  // Robot position and orientation
+
+    while (wb_receiver_get_queue_length(receiver) > 0 && count < FLOCK_SIZE){
+        inbuffer = (char*) wb_receiver_get_data(receiver);
+        sscanf(inbuffer,"%d#%f#%f#%f",&rob_nb,&rob_x,&rob_z,&rob_theta);
+
+        if ((int) rob_nb/FLOCK_SIZE == (int) robot_id/FLOCK_SIZE) {
+            rob_nb %= FLOCK_SIZE;
+            if (initialized[rob_nb] == 0) {
+                // Get initial positions
+                loc[rob_nb][0] = rob_x; //x-position
+                loc[rob_nb][1] = rob_z; //z-position
+                loc[rob_nb][2] = rob_theta; //theta
+                prev_loc[rob_nb][0] = loc[rob_nb][0];
+                prev_loc[rob_nb][1] = loc[rob_nb][1];
+                initialized[rob_nb] = 1;
+            } else {
+                // Get position update
+                //				printf("\n got update robot[%d] = (%f,%f) \n",rob_nb,loc[rob_nb][0],loc[rob_nb][1]);
+                prev_loc[rob_nb][0] = loc[rob_nb][0];
+                prev_loc[rob_nb][1] = loc[rob_nb][1];
+                loc[rob_nb][0] = rob_x; //x-position
+                loc[rob_nb][1] = rob_z; //z-position
+                loc[rob_nb][2] = rob_theta; //theta
+            }
+
+            speed[rob_nb][0] = (1/DELTA_T)*(loc[rob_nb][0]-prev_loc[rob_nb][0]);
+            speed[rob_nb][1] = (1/DELTA_T)*(loc[rob_nb][1]-prev_loc[rob_nb][1]);
+            count++;
+            }
+			wb_receiver_next_packet(receiver);
+		}
+
+
 }

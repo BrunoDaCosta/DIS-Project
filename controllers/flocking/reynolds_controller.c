@@ -6,11 +6,16 @@
 #include <webots/gps.h>
 #include <webots/accelerometer.h>
 #include <webots/position_sensor.h>
+#include <webots/distance_sensor.h>
+#include <webots/emitter.h>
+#include <webots/receiver.h>
 
-#include "odometry.h"
 #include "trajectories.h"
 #include "utils.h"
 
+
+
+// Verbose activation
 #define VERBOSE_GPS false
 #define VERBOSE_ENC false
 #define VERBOSE_ACC false
@@ -19,14 +24,23 @@
 #define VERBOSE_ACC_MEAN false
 #define VERBOSE_KF false
 
+// Odometry type
 #define ODOMETRY_ACC false
-#define ACTIVATE_KALMAN false
+#define ACTIVATE_KALMAN true
 
 
 /*CONSTANTES*/
 #define WHEEL_AXIS 	0.057 		// Distance between the two wheels in meter
-#define WHEEL_RADIUS 	0.020		// Radius of the wheel in meter
-#define TIME_INIT_ACC 5                    // Time in second
+#define WHEEL_RADIUS 	0.020	           // Radius of the wheel in meter
+#define TIME_INIT_ACC 5                     // Time in second
+
+#define NB_SENSORS    8	           // Number of distance sensors
+#define FLOCK_SIZE	5                     // Size of flock
+
+#define MIN_SENS          350     // Minimum sensibility value
+#define MAX_SENS          4096    // Maximum sensibility value
+
+
 
 typedef struct
 {
@@ -40,7 +54,6 @@ typedef struct
   double right_enc;
 
 } measurement_t;
-
 
 
 typedef struct
@@ -60,6 +73,11 @@ WbDeviceTag dev_left_encoder;
 WbDeviceTag dev_right_encoder;
 WbDeviceTag dev_left_motor;
 WbDeviceTag dev_right_motor;
+WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
+WbDeviceTag receiver;		// Handle for the receiver node
+WbDeviceTag emitter;		// Handle for the emitter node
+
+static int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1), robot ID
 
 //-----------------------------------------------------------------------------------//
 /*VARIABLES*/
@@ -75,6 +93,8 @@ static double KF_cov[MMS][MMS]={{0.001, 0, 0, 0},
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
+int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
+
 static FILE *fp;
 
 //-----------------------------------------------------------------------------------//
@@ -87,28 +107,59 @@ static void controller_compute_mean_acc();
 static void controller_print_log();
 static bool controller_init_log(const char* filename);
 
+static void odometry_update(int time_step);
+
 void init_devices(int ts);
 
 void init_devices(int ts) {
+  // GPS
   dev_gps = wb_robot_get_device("gps");
   wb_gps_enable(dev_gps, 1000);
-
+  // Accelerometer
   dev_acc = wb_robot_get_device("accelerometer");
   wb_accelerometer_enable(dev_acc, ts);
-
-
+  // Encoder
   dev_left_encoder = wb_robot_get_device("left wheel sensor");
   dev_right_encoder = wb_robot_get_device("right wheel sensor");
   wb_position_sensor_enable(dev_left_encoder,  ts);
   wb_position_sensor_enable(dev_right_encoder, ts);
 
+  // Motor control
   dev_left_motor = wb_robot_get_device("left wheel motor");
   dev_right_motor = wb_robot_get_device("right wheel motor");
   wb_motor_set_position(dev_left_motor, INFINITY);
   wb_motor_set_position(dev_right_motor, INFINITY);
   wb_motor_set_velocity(dev_left_motor, 0.0);
   wb_motor_set_velocity(dev_right_motor, 0.0);
+  
+  // Communication 
+  receiver = wb_robot_get_device("receiver");
+  emitter = wb_robot_get_device("emitter");
+  int i;
+  char s[4]="ps0";
+  for(i=0; i<NB_SENSORS;i++) {
+    ds[i]=wb_robot_get_device(s); // the device name is specified in the world file
+    s[2]++;			 // increases the device number
+  }
+  char* robot_name; 
+  robot_name=(char*) wb_robot_get_name(); 
+
+  for(i=0;i<NB_SENSORS;i++) {
+    wb_distance_sensor_enable(ds[i],64);
+  }
+  wb_receiver_enable(receiver,64);
+  
+  sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
+  robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
+  
+  // for(i=0; i<FLOCK_SIZE; i++) {
+    // initialized[i] = 1; 		  // Set initialization to 0 (= not yet initialized)
+  // }
+  
+  printf("Init: robot %d\n",robot_id_u);
 }
+
+
 
 
 
@@ -209,10 +260,38 @@ void Kalman_Filter(){
   }
 }
 
+void braitenberg(){
+  int bmsl = 0, bmsr = 0, sum_sensors = 0;	// Braitenberg parameters
+  int i;				// Loop counter
+  int distances[NB_SENSORS];	// Array for the distance sensor readings
+  int max_sens = 0;			// Store highest sensor value
+
+  /* Braitenberg */
+  for(i=0;i<NB_SENSORS;i++) {
+    distances[i]=wb_distance_sensor_get_value(ds[i]); //Read sensor values
+    sum_sensors += distances[i]; // Add up sensor values
+    max_sens = max_sens>distances[i]?max_sens:distances[i]; // Check if new highest sensor value
+
+    // Weighted sum of distance sensor values for Braitenberg vehicle
+    bmsr += e_puck_matrix[i] * distances[i];
+    bmsl += e_puck_matrix[i+NB_SENSORS] * distances[i];
+  }
+
+  // Adapt Braitenberg values (empirical tests)
+  bmsl/=MIN_SENS; bmsr/=MIN_SENS;
+  bmsl+=66; bmsr+=72;
+}
+
 
 
 int main()
 {
+  /*int rob_nb;			// Robot number
+  int msl, msr;			// Wheel speeds
+  float msl_w, msr_w;
+  char *inbuffer;*/
+  char outbuffer[255];			// Buffer for the receiver node
+	
   if(ODOMETRY_ACC)
   {
     if (controller_init_log("odoacc.csv")) return 1;
@@ -234,41 +313,19 @@ int main()
   init_devices(time_step);
 
   while (wb_robot_step(time_step) != -1)  {
-    if(ODOMETRY_ACC){
-      if(wb_robot_get_time() < TIME_INIT_ACC){
-        controller_compute_mean_acc();
-        time_end_calibration = wb_robot_get_time();
-        continue;
-      }
-      else
-        controller_get_acc();
-      }
-    else{
-      controller_get_encoder();  
-    }
-
+  
+    odometry_update(time_step);
     
-
-    KF_Update_Cov_Matrix((double) time_step/1000);
-
-    double time_now_s = wb_robot_get_time();
-    if (ACTIVATE_KALMAN &&   time_now_s - last_gps_time_s >= 1.0f) {
-      last_gps_time_s = time_now_s;
-      controller_get_gps();
-      if (VERBOSE_POS)  printf("ROBOT pose: %g %g %g\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
-      //printf("ACC1: %g %g %g\n", _robot.acc.x , _robot.acc.y, _robot.acc.heading);
-      Kalman_Filter();
-      //printf("ACC2: %g %g %g\n", _robot.acc.x , _robot.acc.y, _robot.acc.heading);
-
-      if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
-    }
     //_robot.supervisor.y = wb_supervisor_field_get_sf_vec3f(robs_trans[i])[2]; // Z
     //_robot.supervisor.heading = wb_supervisor_field_get_sf_rotation(robs_rotation[i])[3]; // THETA
     controller_print_log();
-
+    
+    
+    wb_emitter_send(emitter,outbuffer,strlen(outbuffer));
   // Use one of the two trajectories.
     trajectory_1(dev_left_motor, dev_right_motor,time_end_calibration);
 //    trajectory_2(dev_left_motor, dev_right_motor,time_end_calibration);
+    //wb_robot_step(TIME_STEP);
   }
   
   // Close the log file
@@ -281,6 +338,34 @@ int main()
   return 0;
 }
 
+
+void odometry_update(int time_step){
+  if(ODOMETRY_ACC){
+    if(wb_robot_get_time() < TIME_INIT_ACC){
+      controller_compute_mean_acc();
+      time_end_calibration = wb_robot_get_time();
+      return; // Maybe return 0 and skip the rest ???
+    }
+    else
+    controller_get_acc();
+  }
+  else{
+    controller_get_encoder();  
+  }
+  
+  KF_Update_Cov_Matrix((double) time_step/1000);
+
+  double time_now_s = wb_robot_get_time();
+  if (ACTIVATE_KALMAN &&   time_now_s - last_gps_time_s >= 1.0f){
+    last_gps_time_s = time_now_s;
+    controller_get_gps();
+    if (VERBOSE_POS)  printf("ROBOT pose: %g %g %g\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
+    //printf("ACC1: %g %g %g\n", _robot.acc.x , _robot.acc.y, _robot.acc.heading);
+    Kalman_Filter();
+    //printf("ACC2: %g %g %g\n", _robot.acc.x , _robot.acc.y, _robot.acc.heading);
+    if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", _robot.pos.x , _robot.pos.y, _robot.pos.heading);
+    }
+}
 
 /**
  * @brief      Read the encoders values from the sensors

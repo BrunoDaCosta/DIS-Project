@@ -3,6 +3,13 @@
 
 #define MMS 4 //Matrix max size
 
+typedef struct 
+{
+  double x;
+  double y;
+  double heading;
+} pose_t;
+
 void add(double a[][MMS],double b[][MMS],double res[][MMS],int r1,int c1,int r2,int c2)
 {
   if (c1!=c2 || r1!=r2){

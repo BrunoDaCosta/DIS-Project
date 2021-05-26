@@ -1,4 +1,4 @@
-#VRML_SIM R2021a utf8
+#VRML_SIM R2019b utf8
 WorldInfo {
   info [
     "Description"
@@ -6,11 +6,10 @@ WorldInfo {
     "Date: DD MMM YYYY"
   ]
   basicTimeStep 16
-  coordinateSystem "NUE"
 }
 Viewpoint {
-  orientation -0.9053346567121823 -0.4043169059144901 -0.1299884569781807 0.8534236985805738
-  position -2.9619646289763306 6.817366574431916 7.277102275082014
+  orientation -0.9995666877925173 0.0019323320214833942 0.02937180192726951 1.4461083142482485
+  position -0.5983252715372209 9.477265709108634 1.3338133318195668
 }
 PointLight {
   intensity 0.5
@@ -1491,6 +1490,5 @@ DEF ROBOT1 Robot {
     ]
   }
   controller "localization_controller"
-  supervisor TRUE
   cpuConsumption 1.11
 }

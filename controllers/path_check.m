@@ -12,9 +12,9 @@ opts.VariableTypes = ["double", "double", "double", "double", "double", "double"
 opts.ExtraColumnsRule = "ignore";
 opts.EmptyLineRule = "read";
 % Import the data
-acc = readtable("C:\EPFL\DIS-Project\controllers\Matlab\odoacc.csv", opts);
-enc = readtable("C:\EPFL\DIS-Project\controllers\Matlab\odoenc.csv", opts);
-sup = readtable("C:\EPFL\DIS-Project\controllers\Matlab\super.csv", opts);
+acc = readtable("D:\EPFL SSD\Projet DIS\controllers\localization_controller\odoacc.csv", opts);
+enc = readtable("D:\EPFL SSD\Projet DIS\controllers\localization_controller\odoenc.csv", opts);
+sup = readtable("D:\EPFL SSD\Projet DIS\controllers\supervisor\super.csv", opts);
 
 clear opts
 

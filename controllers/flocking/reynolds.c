@@ -110,7 +110,7 @@ static void reset() {
 	robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
   
 	for(i=0; i<FLOCK_SIZE; i++) {
-		initialized[i] = 0; 		  // Set initialization to 0 (= not yet initialized)
+		initialized[i] = 1; 		  // Set initialization to 0 (= not yet initialized)
 	}
   
   	printf("Reset: robot %d\n",robot_id_u);

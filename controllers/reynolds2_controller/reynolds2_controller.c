@@ -15,15 +15,15 @@
 #include "utils.h"
 
 #define VERBOSE_GPS false
-#define VERBOSE_ENC false
+#define VERBOSE_ENC true
 #define VERBOSE_ACC false
 
-#define VERBOSE_POS false
+#define VERBOSE_POS true
 #define VERBOSE_ACC_MEAN false
 #define VERBOSE_KF false
 
 #define ODOMETRY_ACC false
-#define ACTIVATE_KALMAN false
+#define ACTIVATE_KALMAN true
 
 
 /*CONSTANTES*/
@@ -37,7 +37,7 @@
 /*Webots 2018b*/
 #define MAX_SPEED_WEB      6.28    // Maximum speed webots
 /*Webots 2018b*/
-#define FLOCK_SIZE	  4	  // Size of flock
+#define FLOCK_SIZE	  5	  // Size of flock
 #define TIME_STEP	  64	  // [ms] Length of time step
 
 #define AXLE_LENGTH 		0.052	// Distance between wheels of robot (meters)
@@ -47,14 +47,14 @@
 
 
 #define RULE1_THRESHOLD     0.20   // Threshold to activate aggregation rule. default 0.20
-#define RULE1_WEIGHT        (0.6/10)	   // Weight of aggregation rule. default 0.6/10
+#define RULE1_WEIGHT        (0.8/10)	   // Weight of aggregation rule. default 0.6/10
 
 #define RULE2_THRESHOLD     0.15   // Threshold to activate dispersion rule. default 0.15
-#define RULE2_WEIGHT        (0.03/10)	   // Weight of dispersion rule. default 0.02/10
+#define RULE2_WEIGHT        (0.06/10)	   // Weight of dispersion rule. default 0.02/10
 
 #define RULE3_WEIGHT        (1.0/10)   // Weight of consistency rule. default 1.0/10
 
-#define MIGRATION_WEIGHT    (0.02/10)   // Wheight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_WEIGHT    (0.05/10)   // Wheight of attraction towards the common goal. default 0.01/10
 
 #define MIGRATORY_URGE 1 // Tells the robots if they should just go forward or move towards a specific migratory direction
 
@@ -79,6 +79,7 @@ typedef struct
 {
   float supervisor[3];
   pose_t pos;
+  pose_t prev_pos;
   pose_t speed;
   pose_t acc;
   pose_t rel_pos;
@@ -103,8 +104,8 @@ int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; /
 
 
 WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
-WbDeviceTag receiver2;		// Handle for the receiver node
-WbDeviceTag emitter2;		// Handle for the emitter node
+WbDeviceTag receiver;		// Handle for the receiver node
+WbDeviceTag emitter;		// Handle for the emitter node
 
 //-----------------------------------------------------------------------------------//
 /*VARIABLES*/
@@ -125,7 +126,7 @@ static FILE *fp;
 
 //-----------------------------------------------------------------------------------//
 // Reynolds 2 
-int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1) robot ID
+static int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1) robot ID
 
 float relative_pos[FLOCK_SIZE][3];	// relative X, Z, Theta of all robots
 float prev_relative_pos[FLOCK_SIZE][3];	// Previous relative  X, Z, Theta values
@@ -150,14 +151,13 @@ static bool controller_init_log(const char* filename);
 void init_devices(int ts);
 
 void init_devices(int ts) {
-
   // Init
   int i;
   char s[4]="ps0";
   
   // Receiver/emitter setup
-  receiver2 = wb_robot_get_device("receiver2");
-  emitter2 = wb_robot_get_device("emitter2");
+  receiver = wb_robot_get_device("receiver");
+  emitter = wb_robot_get_device("emitter");
 	
   dev_gps = wb_robot_get_device("gps");
   wb_gps_enable(dev_gps, 1000);
@@ -190,7 +190,7 @@ void init_devices(int ts) {
   for(i=0;i<NB_SENSORS;i++)
     wb_distance_sensor_enable(ds[i],64);
 
-  wb_receiver_enable(receiver2,64);
+  wb_receiver_enable(receiver,64);
 
   //Reading the robot's name. Pay attention to name specification when adding robots to the simulation!
   sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
@@ -204,8 +204,8 @@ void init_devices(int ts) {
   
   printf("Reset: robot %d\n",robot_id_u);
         
-  migr[0] = 25;
-  migr[1] = -25;
+  migr[0] = 2.5;
+  migr[1] = 0;
 }
 
 /*
@@ -245,6 +245,29 @@ void compute_wheel_speeds(int *msl, int *msr) {
 	*msr = (u + AXLE_LENGTH*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	limit(msl,MAX_SPEED);
 	limit(msr,MAX_SPEED);
+}
+
+void update_self_motion(int msl, int msr) { 
+	float theta = rf[robot_id].pos.heading;
+  
+	// Compute deltas of the robot
+	float dr = (float)msr * SPEED_UNIT_RADS * WHEEL_RADIUS * DELTA_T;
+	float dl = (float)msl * SPEED_UNIT_RADS * WHEEL_RADIUS * DELTA_T;
+	float du = (dr + dl)/2.0;
+	float dtheta = (dr - dl)/AXLE_LENGTH;
+  
+	// Compute deltas in the environment
+	float dx = -du * sinf(theta);
+	float dz = -du * cosf(theta);
+  
+	// Update position
+	rf[robot_id].pos.x += dx;
+	rf[robot_id].pos.y += dz;
+	rf[robot_id].pos.heading += dtheta;
+  
+	// Keep orientation within 0, 2pi
+	if (rf[robot_id].pos.heading > 2*M_PI) rf[robot_id].pos.heading -= 2.0*M_PI;
+	if (rf[robot_id].pos.heading < 0) rf[robot_id].pos.heading += 2.0*M_PI;
 }
 
 void reynolds_rules() {
@@ -308,7 +331,6 @@ void reynolds_rules() {
             	 rf[robot_id].speed.y -= (migr[1]-rf[robot_id].pos.heading) * MIGRATION_WEIGHT; //y axis of webots is inverted
             }
 
-
 }
 
 /*
@@ -319,7 +341,7 @@ void reynolds_rules() {
 void send_ping(void) {
 	char out[10];
 	strcpy(out,robot_name);  // in the ping message we send the name of the robot.
-	wb_emitter_send(emitter2,out,strlen(out)+1); 
+	wb_emitter_send(emitter,out,strlen(out)+1); 
 }
 
 /*
@@ -333,10 +355,10 @@ void process_received_ping_messages(void) {
 	double range;
 	char *inbuffer;	// Buffer for the receiver node
 	int other_robot_id;
-	while (wb_receiver_get_queue_length(receiver2) > 0) {
-		inbuffer = (char*) wb_receiver_get_data(receiver2);
-		message_direction = wb_receiver_get_emitter_direction(receiver2);
-		message_rssi = wb_receiver_get_signal_strength(receiver2);
+	while (wb_receiver_get_queue_length(receiver) > 0) {
+		inbuffer = (char*) wb_receiver_get_data(receiver);
+		message_direction = wb_receiver_get_emitter_direction(receiver);
+		message_rssi = wb_receiver_get_signal_strength(receiver);
 		double y = message_direction[2];
 		double x = message_direction[1];
 
@@ -354,12 +376,12 @@ void process_received_ping_messages(void) {
 		rf[other_robot_id].rel_pos.x = range*cos(theta);  // relative x pos
 		rf[other_robot_id].rel_pos.y = -1.0 * range*sin(theta);   // relative y pos
 	
-		printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, my theta %g\n",robot_name,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y,-atan2(y,x)*180.0/3.141592,rf[robot_id].pos.heading*180.0/3.141592);
+		// printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, my theta %g\n",robot_name,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y,-atan2(y,x)*180.0/3.141592,rf[robot_id].pos.heading*180.0/3.141592);
                       
                       rf[other_robot_id].rel_speed.x = rf[other_robot_id].rel_speed.x*0.0 + 1.0*(1/DELTA_T)*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].prev_rel_pos.x);
                       rf[other_robot_id].rel_speed.y = rf[other_robot_id].rel_speed.y*0.0 + 1.0*(1/DELTA_T)*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].prev_rel_pos.y);		
 		 
-		wb_receiver_next_packet(receiver2);
+		wb_receiver_next_packet(receiver);
 	}
 }
 
@@ -467,7 +489,8 @@ void Kalman_Filter(){
 
 int main()
 {
-  printf("Start Main\n");
+  
+  //printf("Start Main\n");
   int msl, msr;			// Wheel speeds
   /*Webots 2018b*/
   float msl_w, msr_w;
@@ -476,7 +499,7 @@ int main()
   int i;				// Loop counter
   int distances[NB_SENSORS];	// Array for the distance sensor readings
   int max_sens;			// Store highest sensor value
-	
+  float y_list[FLOCK_SIZE] = {0,0.1,-0.1,0.2,-0.2};
   
 
   msl = 0; msr = 0; 
@@ -492,25 +515,30 @@ int main()
     if (controller_init_log("odoenc.csv")) return 1;
     printf("Use of odometry with encoders \n");
   }
+  
+  // printf("Webot init\n");
+  wb_robot_init();
+  int time_step = wb_robot_get_basic_time_step();
+  init_devices(time_step);
+  
+  
+  printf("Values of robot %d : \n", robot_id);
   rf[robot_id].pos.x = -2.9;
-  rf[robot_id].pos.y = 0;
+  rf[robot_id].pos.y = y_list[robot_id];
   rf[robot_id].pos.heading = 0;
   rf[robot_id].speed.x = 0;
   rf[robot_id].speed.y = 0;
 
-  printf("Webot init\n");
-  wb_robot_init();
-  int time_step = wb_robot_get_basic_time_step();
-  init_devices(time_step);
 
-  printf("Main_loop\n");
+  // printf("Main loop\n");
   while (wb_robot_step(time_step) != -1)  {
   
     // Init
     bmsl = 0; bmsr = 0;
     sum_sensors = 0;
     max_sens = 0;
-		
+  
+    /*		
     if(ODOMETRY_ACC){
       if(wb_robot_get_time() < TIME_INIT_ACC){
         controller_compute_mean_acc();
@@ -547,6 +575,7 @@ int main()
     //trajectory_1(dev_left_motor, dev_right_motor,time_end_calibration);
     //trajectory_2(dev_left_motor, dev_right_motor,time_end_calibration);
     
+    */
     /* Braitenberg Obstacle avoidance*/
     for(i=0;i<NB_SENSORS;i++) {
       distances[i]=wb_distance_sensor_get_value(ds[i]); //Read sensor values
@@ -563,8 +592,17 @@ int main()
     bmsl+=66; bmsr+=72;
     
     /* Send and get information */
-    send_ping();  // sending a ping to other robot, so they can measure their distance to this robot	
+    send_ping();  // sending a ping to other robot, so they can measure their distance to this robot
+    
+    /// Compute self position
+    rf[robot_id].prev_pos.x = rf[robot_id].pos.x;
+    rf[robot_id].prev_pos.y = rf[robot_id].pos.y;
+		
+    update_self_motion(msl, msr);	
     process_received_ping_messages();
+    
+    rf[robot_id].speed.x = (1/DELTA_T)*(rf[robot_id].pos.x-rf[robot_id].prev_pos.x);
+    rf[robot_id].speed.y = (1/DELTA_T)*(rf[robot_id].pos.y-rf[robot_id].prev_pos.y);
 
     // Reynold's rules with all previous info (updates the speed[][] table)
     reynolds_rules();
@@ -633,6 +671,8 @@ void controller_get_encoder()
   double speed_wx = speed * cos(a);
   double speed_wy = speed * sin(a);
 
+  if(VERBOSE_ENC)
+    printf("ROBOT %d before enc : x: %g  y: %g heading: %g\n",robot_id, rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
 
   //A enlever à terme
   rf[robot_id].speed.x = speed_wx;
@@ -642,7 +682,7 @@ void controller_get_encoder()
   rf[robot_id].pos.heading += omega * time_step;
 
   if(VERBOSE_ENC)
-    printf("ROBOT enc : x: %g  y: %g heading: %g\n", rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
+    printf("ROBOT %d after enc : x: %g  y: %g heading: %g\n",robot_id, rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
 }
 
 void controller_get_acc()

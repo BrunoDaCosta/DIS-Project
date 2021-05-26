@@ -14,9 +14,6 @@
 #include "trajectories.h"
 #include "utils.h"
 
-
-
-
 // Verbose activation
 #define VERBOSE_GPS false
 #define VERBOSE_ENC false
@@ -121,51 +118,51 @@ void get_data();
 void init_devices(int ts);
 
 void init_devices(int ts){
-  // GPS
-  dev_gps = wb_robot_get_device("gps");
-  wb_gps_enable(dev_gps, 1000);
-  // Accelerometer
-  dev_acc = wb_robot_get_device("accelerometer");
-  wb_accelerometer_enable(dev_acc, ts);
-  // Encoder
-  dev_left_encoder = wb_robot_get_device("left wheel sensor");
-  dev_right_encoder = wb_robot_get_device("right wheel sensor");
-  wb_position_sensor_enable(dev_left_encoder,  ts);
-  wb_position_sensor_enable(dev_right_encoder, ts);
+    // GPS
+    dev_gps = wb_robot_get_device("gps");
+    wb_gps_enable(dev_gps, 1000);
+    // Accelerometer
+    dev_acc = wb_robot_get_device("accelerometer");
+    wb_accelerometer_enable(dev_acc, ts);
+    // Encoder
+    dev_left_encoder = wb_robot_get_device("left wheel sensor");
+    dev_right_encoder = wb_robot_get_device("right wheel sensor");
+    wb_position_sensor_enable(dev_left_encoder,  ts);
+    wb_position_sensor_enable(dev_right_encoder, ts);
 
-  // Motor control
-  dev_left_motor = wb_robot_get_device("left wheel motor");
-  dev_right_motor = wb_robot_get_device("right wheel motor");
-  wb_motor_set_position(dev_left_motor, INFINITY);
-  wb_motor_set_position(dev_right_motor, INFINITY);
-  wb_motor_set_velocity(dev_left_motor, 0.0);
-  wb_motor_set_velocity(dev_right_motor, 0.0);
+    // Motor control
+    dev_left_motor = wb_robot_get_device("left wheel motor");
+    dev_right_motor = wb_robot_get_device("right wheel motor");
+    wb_motor_set_position(dev_left_motor, INFINITY);
+    wb_motor_set_position(dev_right_motor, INFINITY);
+    wb_motor_set_velocity(dev_left_motor, 0.0);
+    wb_motor_set_velocity(dev_right_motor, 0.0);
 
-  // Communication
-  receiver = wb_robot_get_device("receiver");
-  emitter = wb_robot_get_device("emitter");
-  int i;
-  char s[4]="ps0";
-  for(i=0; i<NB_SENSORS;i++) {
-    ds[i]=wb_robot_get_device(s); // the device name is specified in the world file
-    s[2]++;			 // increases the device number
-  }
-  char* robot_name;
-  robot_name=(char*) wb_robot_get_name();
+    // Communication
+    receiver = wb_robot_get_device("receiver");
+    emitter = wb_robot_get_device("emitter");
+    int i;
+    char s[4]="ps0";
+    for(i=0; i<NB_SENSORS;i++) {
+        ds[i]=wb_robot_get_device(s); // the device name is specified in the world file
+        s[2]++;			 // increases the device number
+    }
+    char* robot_name;
+    robot_name=(char*) wb_robot_get_name();
 
-  for(i=0;i<NB_SENSORS;i++) {
-    wb_distance_sensor_enable(ds[i],64);
-  }
-  wb_receiver_enable(receiver,64);
+    for(i=0;i<NB_SENSORS;i++) {
+        wb_distance_sensor_enable(ds[i],64);
+    }
+    wb_receiver_enable(receiver,64);
 
-  sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
-  robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
+    sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
+    robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
 
-  for(i=0; i<FLOCK_SIZE; i++) {
-      rf[i].initialized = 0; 		  // Set initialization to 0 (= not yet initialized)
-  }
+    for(i=0; i<FLOCK_SIZE; i++) {
+        rf[i].initialized = 0; 		  // Set initialization to 0 (= not yet initialized)
+    }
 
-  printf("Init: robot %d\n",robot_id_u);
+    printf("Init: robot %d\n",robot_id_u);
 }
 
 
@@ -247,7 +244,6 @@ int main()
 
   return 0;
 }
-
 
 void odometry_update(int time_step){
   if(ODOMETRY_ACC){
@@ -415,15 +411,17 @@ void controller_print_log()
  *
  * @return     return true if it fails
  */
-bool controller_init_log(const char* filename){
-  fp = fopen(filename,"w");
-  bool err = (fp == NULL);
+ bool controller_init_log(const char* filename){
+   fp = fopen(filename,"w");
+   bool err = (fp == NULL);
 
-  if( !err ){
-    fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; speed_x; speed_y; acc_x; acc_y; actual_pos_x; actual_pos_y\n");
-  }
-  return err;
-}
+   if( !err ){
+     fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; speed_x; speed_y; acc_x; acc_y; actual_pos_x; actual_pos_y\n");
+   }
+   return err;
+ }
+
+
 
 /**
  * @brief      Get data from other robots

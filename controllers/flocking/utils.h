@@ -8,6 +8,16 @@ typedef struct
   double heading;
 } pose_t;
 
+/*
+ * Keep given int number within interval {-limit, limit}
+ */
+void limit(int *number, int limit) {
+	if (*number > limit)
+		*number = limit;
+	if (*number < -limit)
+		*number = -limit;
+}
+
 // typedef struct
 // {
 //   float supervisor[3];

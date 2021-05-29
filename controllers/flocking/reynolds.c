@@ -413,7 +413,7 @@ int main(){
 		msl_w = msl*MAX_SPEED_WEB/1000;
 		msr_w = msr*MAX_SPEED_WEB/1000;
 		wb_motor_set_velocity(left_motor, msl_w);
-                      wb_motor_set_velocity(right_motor, msr_w);
+        wb_motor_set_velocity(right_motor, msr_w);
 
 		// Send current position to neighbors, uncomment for I15, don't forget to add the declaration of "outbuffer" at the begining of this function.
 		/*Implement your code here*/

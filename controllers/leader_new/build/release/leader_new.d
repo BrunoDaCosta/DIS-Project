@@ -1,4 +1,4 @@
-build/release/reynolds_controller.o: reynolds_controller.c \
+build/release/leader_new.o: leader_new.c \
  C:\Program\ Files\Webots/include/controller/c/webots/robot.h \
  C:\Program\ Files\Webots/include/controller/c/webots/types.h \
  C:\Program\ Files\Webots/include/controller/c/webots/nodes.h \
@@ -8,5 +8,4 @@ build/release/reynolds_controller.o: reynolds_controller.c \
  C:\Program\ Files\Webots/include/controller/c/webots/position_sensor.h \
  C:\Program\ Files\Webots/include/controller/c/webots/distance_sensor.h \
  C:\Program\ Files\Webots/include/controller/c/webots/emitter.h \
- C:\Program\ Files\Webots/include/controller/c/webots/receiver.h kalman.h \
- trajectories.h utils.h
+ odometry.h utils.h

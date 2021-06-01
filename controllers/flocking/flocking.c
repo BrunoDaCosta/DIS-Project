@@ -51,6 +51,7 @@
 #define MIGRATORY_URGE    1
 #define MIGRATION_WEIGHT  (0.01/10)*10  // Wheight of attraction towards the common goal. default 0.01/10
 
+#define M_PI 3.14159265358979323846
 
 
 
@@ -81,7 +82,6 @@ typedef struct
   pose_t rel_pos;
   //pose_t prev_rel_pos;
   pose_t rel_speed;
-
   pose_t rey_speed;
 
   //int initialized;
@@ -116,7 +116,8 @@ double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
 int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
-float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, -1.57}, {-2.9, 0.1, -1.57}, {-2.9, -0.1, -1.57}, {-2.9, 0.2, -1.57}, {-2.9, -0.2, -1.57}};
+float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, -0.1, 0}, {-2.9, 0.1, 0}, {-2.9, -0.2, 0}, {-2.9, 0.2, 0}};
+//float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, -M_PI/2}};
 
 float migr[2] = {2, 0};	                // Migration vector
 
@@ -242,6 +243,7 @@ void reynolds_rules() {
 	float cohesion[2] = {0,0};
 	float dispersion[2] = {0,0};
 	float consistency[2] = {0,0};
+           if(robot_id==4) printf("Robot speed in reynold: %f %f \n", rf[robot_id].speed.x,rf[robot_id].speed.y);
 
 	/* Compute averages over the whole flock */
 	for(i=0; i<FLOCK_SIZE; i++) {
@@ -251,11 +253,13 @@ void reynolds_rules() {
         avg_loc[0] += rf[i].pos.x;
         avg_loc[1] += rf[i].pos.y;
 	}
+	
 
 	avg_speed[0] /= FLOCK_SIZE-1;
     avg_speed[1] /= FLOCK_SIZE-1;
 	avg_loc[0] /= FLOCK_SIZE-1;
     avg_loc[1] /= FLOCK_SIZE-1;
+    if(robot_id==4) printf("Average speed in reynold: %f %f \n", avg_speed[0],avg_speed[1]);
 
     //printf("avg_speed: %g %g | avg_pos: %g %g\n", avg_speed[0], avg_speed[1], avg_loc[0], avg_loc[1]);
 
@@ -279,6 +283,7 @@ void reynolds_rules() {
 		}
 	}
 	/* Rule 3 - Consistency/Alignment: match the speeds of flockmates */
+
 	consistency[0] = avg_speed[0] - rf[robot_id].speed.x;
 	consistency[1] = avg_speed[1] - rf[robot_id].speed.y;
 
@@ -293,13 +298,13 @@ void reynolds_rules() {
 // !!! FROM HERE: Maybe speed should be replaced by "wanted speed"
     rf[robot_id].rey_speed.x = cohesion[0]*RULE1_WEIGHT + dispersion[0]*RULE2_WEIGHT + consistency[0]*RULE3_WEIGHT;
     rf[robot_id].rey_speed.y = cohesion[1]*RULE1_WEIGHT + dispersion[1]*RULE2_WEIGHT + consistency[1]*RULE3_WEIGHT;
+    if(robot_id==4) printf("X Cohesion: %f, dispersion: %f, consistency: %f \n", cohesion[0]*RULE1_WEIGHT,dispersion[0]*RULE2_WEIGHT,consistency[0]*RULE3_WEIGHT);
+    if(robot_id==4) printf("Y Cohesion: %f, dispersion: %f, consistency: %f \n", cohesion[1]*RULE1_WEIGHT,dispersion[1]*RULE2_WEIGHT,consistency[1]*RULE3_WEIGHT);
 
-    rf[robot_id].rey_speed.x =0;
-    rf[robot_id].rey_speed.y =0;
     /*if (robot_id==0)
         printf("After: %g\n", rf[robot_id].speed.x);
         */
-	rf[robot_id].rey_speed.y *= -1; //y axis of webots is inverted
+	//rf[robot_id].rey_speed.y *= -1; //y axis of webots is inverted
 
 	//move the robot according to some migration rule
 	if(MIGRATORY_URGE == 0){
@@ -308,11 +313,15 @@ void reynolds_rules() {
 	} else {
 		/* Implement migratory urge */
 //!!! Ici y a peut-être un problème, la migration devrait pas dépendre de la distance
-		rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*(migr[0]-rf[robot_id].pos.x);
-        rf[robot_id].rey_speed.y -= MIGRATION_WEIGHT*(migr[1]-rf[robot_id].pos.y); //y axis of webots is inverted
+                rf[robot_id].rey_speed.x += 0.01;
+	     //rf[robot_id].rey_speed.y += 0.01;
+	     
+  	     //rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*(migr[0]-rf[robot_id].pos.x);
+                //rf[robot_id].rey_speed.y -= MIGRATION_WEIGHT*(migr[1]-rf[robot_id].pos.y); //y axis of webots is inverted
+
 	}
     // if (robot_id==0) printf("Speed %g %g \n", rf[robot_id].speed.x, rf[robot_id].speed.y);
-    printf("Migratory speed: %g %g\n", rf[robot_id].rey_speed.x, rf[robot_id].rey_speed.y);
+    if(robot_id==4) printf("Migratory speed: %g %g\n", rf[robot_id].rey_speed.x, rf[robot_id].rey_speed.y);
 }
 
 /*
@@ -320,33 +329,39 @@ void reynolds_rules() {
  */
 void compute_wheel_speeds(float *msl, float *msr)
 {
+    if(robot_id==4) printf("Basic speeds: %f, %f \n", *msl,*msr);
 	// Compute wanted position from Reynold's speed and current location
-    //if (robot_id==0) printf("Speed %g %g \n", rf[robot_id].rey_speed.x, rf[robot_id].rey_speed.y);
+	if(robot_id==4) printf("Heading: %f \n", rf[robot_id].pos.heading);
 	float x = rf[robot_id].rey_speed.x*cosf(rf[robot_id].pos.heading) + rf[robot_id].rey_speed.y*sinf(rf[robot_id].pos.heading); // x in robot coordinates
-	float y = -rf[robot_id].rey_speed.x*sinf(rf[robot_id].pos.heading) + rf[robot_id].rey_speed.y*cosf(rf[robot_id].pos.heading); // y in robot coordinates
-    printf("    Positon        : %f %f\n", rf[robot_id].pos.x, rf[robot_id].pos.y);
-    printf("    Migratory goal : %f %f\n", x, y);
+	float y = rf[robot_id].rey_speed.x*sinf(rf[robot_id].pos.heading) + rf[robot_id].rey_speed.y*cosf(rf[robot_id].pos.heading); // y in robot coordinates
+    //printf("    Positon        : %f %f\n", rf[robot_id].pos.x, rf[robot_id].pos.y);
+    //printf("    Migratory goal : %f %f\n", x, y);
     //if (robot_id==0) printf("Pos goal %g %g\n", x, y);
 	float Ku = 0.2;   // Forward control coefficient
 	float Kw = 0.5;  // Rotational control coefficient
 	float range = sqrtf(x*x + y*y);	  // Distance to the wanted position
-	float bearing = -atan2(x, y);	  // Orientation of the wanted position
-
+	float bearing = atan2(y, x);	  // Orientation of the wanted position
+	
+          if(robot_id==4) printf("Bearing: %f \n", bearing);
 	// Compute forward control
-	float u = Ku*range*cosf(bearing);
+	float u = Ku*range*cosf(bearing-rf[robot_id].pos.heading);
+	
 	// Compute rotational control
-	float w = Kw*bearing;
+	float w = Kw*(bearing-rf[robot_id].pos.heading);
+	
 	// Convert to wheel speeds!
-
 	*msl = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
-
-    //if (robot_id==0) printf("Before %d %d | After ", *msl, *msr);
+            
+           if(robot_id==4) printf("Modified speeds: %f, %f \n", *msl,*msr);
 	limit(msl,MAX_SPEED);
 	limit(msr,MAX_SPEED);
-    //if (robot_id==0) printf("%d %d\n", *msl, *msr);
-    *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
-    *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;
+	
+            
+            if(robot_id==4) printf("Limited speeds: %f, %f \n", *msl,*msr);
+            *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
+            *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;
+            if(robot_id==4) printf("Final speeds: %f, %f \n", *msl,*msr);
 }
 //#############################################################################
 // !!!!!  SI TU ES PERDU LE MAIN EST ICI
@@ -381,8 +396,14 @@ int main()
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
   init_devices(time_step);
-
+  printf("Spot 1 \n");
   while (wb_robot_step(time_step) != -1)  {
+  
+    if(robot_id==4)
+      printf(" \n");
+    
+    if(robot_id==4)
+      printf("Robot id: %d \n", robot_id);
     sprintf(outbuffer,"%1d#%f#%f#%f#%f#%f",robot_id,rf[robot_id].pos.x,rf[robot_id].pos.y, rf[robot_id].pos.heading, rf[robot_id].speed.x, rf[robot_id].speed.y);
     wb_emitter_send(emitter,outbuffer,strlen(outbuffer));
     get_data(time_step);
@@ -408,11 +429,13 @@ int main()
     //if (robot_id==0) printf("Before Braitenberg: %g %g\n", msl, msr);
     // Add Braitenberg
     braitenberg(&msl, &msr);
-    //if (robot_id==0) printf("After Braitenberg: %g %g\n", msl, msr);
+    if(robot_id==4)
+      printf("After Braitenberg: %g %g\n", msl, msr);
 
     // if (robot_id==0)printf("Final speed: %g %g %g %g %g %g %g\n\n", rf[robot_id].rey_speed.x, rf[robot_id].rey_speed.y, msl, msr, rf[robot_id].pos.x,rf[robot_id].pos.y, rf[robot_id].pos.heading);
     wb_motor_set_velocity(dev_left_motor, msl);
     wb_motor_set_velocity(dev_right_motor, msr);
+    
 
     wb_robot_step(time_step);
   // Use one of the two trajectories.
@@ -479,20 +502,22 @@ void controller_get_encoder()
 
   _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
 
+  
+    
   double deltaright=_meas.right_enc-_meas.prev_right_enc;
 
   deltaleft  *= WHEEL_RADIUS;
   deltaright *= WHEEL_RADIUS;
 
-  double omega = - ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step ); //ADDED MINUS TO TEST --JEREMY
+  double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step ); //ADDED MINUS TO TEST --JEREMY
   double speed = ( deltaright + deltaleft ) / ( 2.0 * time_step );
 
   double a = rf[robot_id].pos.heading;
 
   double speed_wx = speed * cos(a);
   double speed_wy = speed * sin(a);
-
-
+  
+  
   //A enlever à terme
   rf[robot_id].speed.x = speed_wx;
   rf[robot_id].speed.y = speed_wy;
@@ -501,7 +526,8 @@ void controller_get_encoder()
   rf[robot_id].pos.heading += omega * time_step;
   if (rf[robot_id].pos.heading>M_PI) rf[robot_id].pos.heading-=2*M_PI;
   if (rf[robot_id].pos.heading<-M_PI) rf[robot_id].pos.heading+=2*M_PI;
-
+  if(robot_id==4)
+      printf("In odometry: %g %g\n", _meas.left_enc, _meas.right_enc);
 
   if(VERBOSE_ENC)
     printf("ROBOT enc : x: %g  y: %g heading: %g\n", rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);

@@ -26,7 +26,7 @@
 
 // Odometry type
 #define ODOMETRY_ACC false
-#define ACTIVATE_KALMAN false
+#define ACTIVATE_KALMAN true
 
 
 /*CONSTANTES*/
@@ -38,6 +38,7 @@
 #define NB_SENSORS    8	           // Number of distance sensors
 #define FLOCK_SIZE	5                     // Size of flock
 
+
 #define MIN_SENS          350     // Minimum sensibility value
 #define MAX_SENS          4096    // Maximum sensibility value
 #define MAX_SPEED_WEB     6.27    // Maximum speed webots
@@ -45,8 +46,8 @@
 
 #define RULE1_THRESHOLD     0.20   // Threshold to activate aggregation rule. default 0.20
 #define RULE1_WEIGHT        (0.6/10)	   // Weight of aggregation rule. default 0.6/10
-#define RULE2_THRESHOLD     0.005   // Threshold to activate dispersion rule. default 0.15
-#define RULE2_WEIGHT        (0.02/10)	   // Weight of dispersion rule. default 0.02/10
+#define RULE2_THRESHOLD     0.15   // Threshold to activate dispersion rule. default 0.15
+#define RULE2_WEIGHT        0.01*(0.02/10)	   // Weight of dispersion rule. default 0.02/10
 #define RULE3_WEIGHT        (1.0/10)   // Weight of consistency rule. default 1.0/10
 #define MIGRATORY_URGE    1
 #define MIGRATION_WEIGHT  (0.01/10)*10  // Wheight of attraction towards the common goal. default 0.01/10
@@ -116,6 +117,7 @@ double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
 int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
+//int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
 float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, -0.1, 0}, {-2.9, 0.1, 0}, {-2.9, -0.2, 0}, {-2.9, 0.2, 0}};
 //float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, -M_PI/2}};
 
@@ -329,16 +331,17 @@ void reynolds_rules() {
  */
 void compute_wheel_speeds(float *msl, float *msr)
 {
-    if(robot_id==4) printf("Basic speeds: %f, %f \n", *msl,*msr);
 	// Compute wanted position from Reynold's speed and current location
 	if(robot_id==4) printf("Heading: %f \n", rf[robot_id].pos.heading);
-	float x = rf[robot_id].rey_speed.x*cosf(rf[robot_id].pos.heading) + rf[robot_id].rey_speed.y*sinf(rf[robot_id].pos.heading); // x in robot coordinates
-	float y = rf[robot_id].rey_speed.x*sinf(rf[robot_id].pos.heading) + rf[robot_id].rey_speed.y*cosf(rf[robot_id].pos.heading); // y in robot coordinates
+	float x = rf[robot_id].rey_speed.x; // x in robot coordinates
+	float y = rf[robot_id].rey_speed.y; // y in robot coordinates
+           
+	if(robot_id==4) printf("X: %f Y: %f\n", x, y);
     //printf("    Positon        : %f %f\n", rf[robot_id].pos.x, rf[robot_id].pos.y);
     //printf("    Migratory goal : %f %f\n", x, y);
     //if (robot_id==0) printf("Pos goal %g %g\n", x, y);
 	float Ku = 0.2;   // Forward control coefficient
-	float Kw = 0.5;  // Rotational control coefficient
+	float Kw = 0.3;  // Rotational control coefficient
 	float range = sqrtf(x*x + y*y);	  // Distance to the wanted position
 	float bearing = atan2(y, x);	  // Orientation of the wanted position
 	
@@ -478,7 +481,7 @@ void odometry_update(int time_step){
     controller_get_gps();
     if (VERBOSE_POS)  printf("ROBOT pose: %g %g %g\n", rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading);
     //printf("ACC1: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
-    Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].speed.x, &rf[robot_id].speed.x, &_meas.gps[0], &_meas.gps[1]);
+    Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].speed.x, &rf[robot_id].speed.y, &_meas.gps[0], &_meas.gps[1]);
     //print_cov_matrix();
     //printf("ACC2: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
     if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading);

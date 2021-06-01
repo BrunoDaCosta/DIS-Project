@@ -1,0 +1,307 @@
+#VRML_SIM R2021a utf8
+WorldInfo {
+  info [
+    "Description"
+    "Author: first name last name <e-mail>"
+    "Date: DD MMM YYYY"
+  ]
+  basicTimeStep 16
+  coordinateSystem "NUE"
+}
+Viewpoint {
+  orientation -0.3002096825595452 0.9336870172798498 0.19519912976382411 1.2618377566134338
+  position 3.4458689386943324 0.8192753006767933 0.35810239944808614
+}
+Background {
+  skyColor [
+    0 0 0
+    0.4 0.7 1
+  ]
+}
+Floor {
+  size 60 60
+}
+DirectionalLight {
+  direction 0 -1 0
+}
+DEF short_rock_1 Solid {
+  translation -2.13855 0.05 -0.331791
+  rotation 0 1 0 11.0342
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry DEF short_brick_1_geometry Box {
+        size 0.1 0.1 0.1
+      }
+    }
+  ]
+  name "short brick"
+  boundingObject USE short_brick_1_geometry
+}
+DEF short_rock_2 Solid {
+  translation -0.6939361836382847 0.05000000000000489 0.8983264180356845
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry DEF short_brick_1_geometry Box {
+        size 0.1 0.1 0.1
+      }
+    }
+  ]
+  name "short brick"
+  boundingObject USE short_brick_1_geometry
+}
+DEF short_rock_3 Solid {
+  translation -2.11759 0.05 -0.491186
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry DEF short_brick_1_geometry Box {
+        size 0.1 0.1 0.1
+      }
+    }
+  ]
+  name "short brick"
+  boundingObject USE short_brick_1_geometry
+}
+DEF short_rock_4 Solid {
+  translation -1.1010427942384136 0.04999999999999956 0.4226102289887821
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry DEF short_brick_1_geometry Box {
+        size 0.1 0.1 0.1
+      }
+    }
+  ]
+  name "short brick"
+  boundingObject USE short_brick_1_geometry
+}
+DEF short_rock_5 Solid {
+  translation -0.801822 0.05 0.900444
+  rotation 0 1 0 1.5708
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry DEF short_brick_1_geometry Box {
+        size 0.1 0.1 0.1
+      }
+    }
+  ]
+  name "short brick"
+  boundingObject USE short_brick_1_geometry
+}
+DEF long_rock_1 Solid {
+  translation 0.11836334567786322 0.05000000000000089 1.4279415902767894
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry DEF U_END_BOX Box {
+        size 0.3 0.1 0.1
+      }
+    }
+  ]
+  name "short brick"
+  boundingObject USE U_END_BOX
+}
+DEF long_rock_2 Solid {
+  translation -0.7204003266782254 0.05 0.7989089803402485
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry USE U_END_BOX
+    }
+  ]
+  name "short brick"
+  boundingObject USE U_END_BOX
+}
+DEF long_rock_3 Solid {
+  translation -0.466049 0.05 1.23433
+  rotation 0 1 0 1.5708
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry USE U_END_BOX
+    }
+  ]
+  name "short brick"
+  boundingObject USE U_END_BOX
+}
+DEF long_rock_4 Solid {
+  translation -1.5431786348002503 0.05 0.5905088465584334
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+        texture ImageTexture {
+          url [
+            "textures/stone-2.png"
+          ]
+        }
+      }
+      geometry USE U_END_BOX
+    }
+  ]
+  name "short brick"
+  boundingObject USE U_END_BOX
+}
+DEF epuck0 E-puck {
+  hidden position_0_0 311.43266355597694
+  hidden position_0_1 305.10638256745625
+  hidden linearVelocity_0 -0.10718367249145322 -8.528957058538523e-08 0.0035832784907327405
+  hidden angularVelocity_0 -0.0008081997272234379 0.010991834441026239 -0.022167808823270355
+  hidden rotation_1 0.9999999999999999 0 0 2.7266018030023798
+  hidden linearVelocity_1 -0.10679337287837116 -1.9004076719444594e-07 0.003568978193512828
+  hidden angularVelocity_1 0.17843799992052697 0.010814097747996802 5.3379560652027385
+  hidden rotation_2 -1 0 0 3.5134878228361
+  hidden linearVelocity_2 -0.1073524781465747 1.1394838010726093e-07 0.0035895859790319026
+  hidden angularVelocity_2 0.17949093623503226 0.01082322361498099 5.3693381053177465
+  translation -5.486341786965843 -3.19870960487495e-05 -1.8456786635124403
+  rotation -0.0003735783010852805 0.999999854382666 0.00038945333405853105 1.6043738558495801
+  name "epuck0"
+  controller "reynolds"
+  emitter_channel 0
+  receiver_channel 0
+}
+DEF epuck1 E-puck {
+  hidden position_0_0 308.3983920034725
+  hidden position_0_1 307.6603142480753
+  hidden linearVelocity_0 -0.10754416887694832 -1.7194044233009138e-08 0.004395092273276502
+  hidden angularVelocity_0 0.00015430797398801682 0.0070721711315776285 0.0038758574709557643
+  hidden rotation_1 1 0 0 5.760873355506815
+  hidden linearVelocity_1 -0.1073798224393471 -2.8917355399276506e-08 0.004388625775903833
+  hidden angularVelocity_1 0.21940709589846336 0.007202761334675228 5.368797580849116
+  hidden rotation_2 -1 0 0 6.067419503455129
+  hidden linearVelocity_2 -0.10774728223095031 2.0422966673378454e-08 0.004403052255988706
+  hidden angularVelocity_2 0.22017651613780995 0.007203878191810336 5.387621671298683
+  translation -5.763361478578501 -3.198330389912914e-05 -1.597625239733286
+  rotation 0.00030494684272540964 0.9999999036163685 -0.00031587129774103404 1.6116928711353513
+  name "epuck1"
+  controller "reynolds"
+  emitter_channel 0
+  receiver_channel 0
+}
+DEF epuck2 E-puck {
+  hidden position_0_0 311.60610232323535
+  hidden position_0_1 312.83834607658633
+  hidden linearVelocity_0 -0.10699932234909187 -1.0865014230836535e-08 -0.004156549061288824
+  hidden angularVelocity_0 0.00020751026621962287 0.026338954250144393 -0.004095401931224487
+  hidden rotation_1 0.9999999999999999 0 0 2.5531630357439763
+  hidden linearVelocity_1 -0.1062934907442682 -6.502986486283229e-07 -0.004128607181278406
+  hidden angularVelocity_1 -0.20628232000507846 0.026928205737444613 5.311055205496251
+  hidden rotation_2 1 0 0 1.3209192823929905
+  hidden linearVelocity_2 -0.10766431631704433 6.515640018766552e-07 -0.004181787510020189
+  hidden angularVelocity_2 -0.20921152507090082 0.02694374708068951 5.386358049796325
+  translation -5.126379653007625 -3.194456203900638e-05 -1.8347541568656882
+  rotation -0.0011781705625024965 0.9999986869252304 0.0011126823179105807 1.532195403364653
+  name "epuck2"
+  controller "reynolds"
+  emitter_channel 0
+  receiver_channel 0
+}
+DEF epuck3 E-puck {
+  hidden position_0_0 239.39574857044715
+  hidden position_0_1 227.20854493851354
+  hidden linearVelocity_0 -0.006051000708622762 1.4040217705075673e-08 -0.00401600484783667
+  hidden angularVelocity_0 -0.006149633479694183 0.015623026931098703 0.009263615945934119
+  hidden rotation_1 -1 0 0 0.6347068976228678
+  hidden linearVelocity_1 -0.005758884968326051 4.3354465695278854e-08 -0.0038221211034516335
+  hidden angularVelocity_1 -0.19018949034541854 0.015621791117443575 0.2865933960980964
+  hidden rotation_2 -1 0 0 1.0138738800484275
+  hidden linearVelocity_2 -0.006435766838385933 -3.9229154981245254e-08 -0.004271357953499397
+  hidden angularVelocity_2 -0.21449744374111127 0.015621608979524772 0.3232212825284214
+  translation -3.222915343880814 -3.1983813856254276e-05 -2.1871496315234067
+  rotation -0.0003162778112962167 0.9999999345322708 0.00017579476757120614 0.9851022268577942
+  name "epuck3"
+  controller "reynolds"
+  emitter_channel 0
+  receiver_channel 0
+}
+Robot {
+  children [
+    Emitter {
+    }
+  ]
+  name "supverisor"
+  controller "flocking_super"
+  controllerArgs [
+    "0"
+    "25"
+    "-25"
+  ]
+  supervisor TRUE
+}

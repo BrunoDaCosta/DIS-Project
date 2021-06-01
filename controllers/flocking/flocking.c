@@ -306,7 +306,7 @@ void reynolds_rules() {
     /*if (robot_id==0)
         printf("After: %g\n", rf[robot_id].speed.x);
         */
-	//rf[robot_id].rey_speed.y *= -1; //y axis of webots is inverted
+	rf[robot_id].rey_speed.y *= -1; //y axis of webots is inverted
 
 	//move the robot according to some migration rule
 	if(MIGRATORY_URGE == 0){
@@ -335,7 +335,7 @@ void compute_wheel_speeds(float *msl, float *msr)
 	if(robot_id==4) printf("Heading: %f \n", rf[robot_id].pos.heading);
 	float x = rf[robot_id].rey_speed.x; // x in robot coordinates
 	float y = rf[robot_id].rey_speed.y; // y in robot coordinates
-           
+
 	if(robot_id==4) printf("X: %f Y: %f\n", x, y);
     //printf("    Positon        : %f %f\n", rf[robot_id].pos.x, rf[robot_id].pos.y);
     //printf("    Migratory goal : %f %f\n", x, y);
@@ -343,7 +343,7 @@ void compute_wheel_speeds(float *msl, float *msr)
 	float Ku = 0.2;   // Forward control coefficient
 	float Kw = 0.3;  // Rotational control coefficient
 	float range = sqrtf(x*x + y*y);	  // Distance to the wanted position
-	float bearing = atan2(y, x);	  // Orientation of the wanted position
+	float bearing = -atan2(x, y);	  // Orientation of the wanted position
 
           if(robot_id==4) printf("Bearing: %f \n", bearing);
 	// Compute forward control
@@ -371,10 +371,6 @@ void compute_wheel_speeds(float *msl, float *msr)
 //#############################################################################
 int main()
 {
-  /*int rob_nb;			// Robot number
-  int msl, msr;			// Wheel speeds
-  float msl_w, msr_w;
-  char *inbuffer;*/
   float msl_w, msr_w;
   float msl, msr;
   char outbuffer[255];			// Buffer for the receiver node
@@ -389,12 +385,6 @@ int main()
     if (controller_init_log("odoenc.csv")) return 1;
     printf("Use of odometry with encoders \n");
   }
-
-  // rf[robot_id].pos.x = -2.9;
-  // rf[robot_id].pos.y = 0;
-  // rf[robot_id].pos.heading = 0;
-  // rf[robot_id].speed.x = 0;
-  // rf[robot_id].speed.y = 0;
 
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
@@ -493,47 +483,44 @@ void odometry_update(int time_step){
  */
 void controller_get_encoder()
 {
-  int time_step = wb_robot_get_basic_time_step();
-  // Store previous value of the left encoder
-  _meas.prev_left_enc = _meas.left_enc;
+    int time_step = wb_robot_get_basic_time_step();
+    // Store previous value of the left encoder
+    _meas.prev_left_enc = _meas.left_enc;
 
-  _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
+    _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
 
-  double deltaleft=_meas.left_enc-_meas.prev_left_enc;
-  // Store previous value of the right encoder
-  _meas.prev_right_enc = _meas.right_enc;
+    double deltaleft=_meas.left_enc-_meas.prev_left_enc;
+    // Store previous value of the right encoder
+    _meas.prev_right_enc = _meas.right_enc;
 
-  _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
+    _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
 
+    double deltaright=_meas.right_enc-_meas.prev_right_enc;
 
+    deltaleft  *= WHEEL_RADIUS;
+    deltaright *= WHEEL_RADIUS;
 
-  double deltaright=_meas.right_enc-_meas.prev_right_enc;
+    double omega = - ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step ); //ADDED MINUS TO TEST --JEREMY
+    double speed = ( deltaright + deltaleft ) / ( 2.0 * time_step );
 
-  deltaleft  *= WHEEL_RADIUS;
-  deltaright *= WHEEL_RADIUS;
+    double a = rf[robot_id].pos.heading;
 
-  double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step ); //ADDED MINUS TO TEST --JEREMY
-  double speed = ( deltaright + deltaleft ) / ( 2.0 * time_step );
-
-  double a = rf[robot_id].pos.heading;
-
-  double speed_wx = speed * cos(a);
-  double speed_wy = speed * sin(a);
+    double speed_wx = speed * cos(a);
+    double speed_wy = speed * sin(a);
 
 
-  //A enlever à terme
-  rf[robot_id].speed.x = speed_wx;
-  rf[robot_id].speed.y = speed_wy;
-  rf[robot_id].pos.x += rf[robot_id].speed.x * time_step;
-  rf[robot_id].pos.y += rf[robot_id].speed.y * time_step;
-  rf[robot_id].pos.heading += omega * time_step;
-  if (rf[robot_id].pos.heading>M_PI) rf[robot_id].pos.heading-=2*M_PI;
-  if (rf[robot_id].pos.heading<-M_PI) rf[robot_id].pos.heading+=2*M_PI;
-  if(robot_id==4)
-      printf("In odometry: %g %g\n", _meas.left_enc, _meas.right_enc);
 
-  if(VERBOSE_ENC)
-    printf("ROBOT enc : x: %g  y: %g heading: %g\n", rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
+    rf[robot_id].speed.x = speed_wx;
+    rf[robot_id].speed.y = speed_wy;
+    rf[robot_id].pos.x += rf[robot_id].speed.x * time_step;
+    rf[robot_id].pos.y += rf[robot_id].speed.y * time_step;
+    rf[robot_id].pos.heading += omega * time_step;
+    if (rf[robot_id].pos.heading>M_PI) rf[robot_id].pos.heading-=2*M_PI;
+    if (rf[robot_id].pos.heading<-M_PI) rf[robot_id].pos.heading+=2*M_PI;
+
+    //if(robot_id==4) printf("In odometry: %g %g\n", _meas.left_enc, _meas.right_enc);
+    if(VERBOSE_ENC)
+        printf("ROBOT enc : x: %g  y: %g heading: %g\n", rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
 }
 
 void controller_get_acc()
@@ -555,7 +542,7 @@ void controller_get_acc()
   double deltaright=_meas.right_enc-_meas.prev_right_enc;
   deltaleft  *= WHEEL_RADIUS;
   deltaright *= WHEEL_RADIUS;
-  double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step );
+  double omega = -( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step );
   rf[robot_id].pos.heading += omega * time_step;
   if (rf[robot_id].pos.heading>M_PI) rf[robot_id].pos.heading-=2*M_PI;
   if (rf[robot_id].pos.heading<-M_PI) rf[robot_id].pos.heading+=2*M_PI;

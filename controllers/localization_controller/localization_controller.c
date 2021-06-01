@@ -141,7 +141,7 @@ void KF_Update_Cov_Matrix(double ts){
 
   scalar_mult(ts, R, ts_R, 4, 4);
   add(A_cov_AT, ts_R, KF_cov, 4,4,4,4);
-  
+
 }
 
 
@@ -151,7 +151,7 @@ void Kalman_Filter(){
   X[1][0]=_robot.pos.y;
   X[2][0]=_robot.speed.x;
   X[3][0]=_robot.speed.y;
-  
+
   if (VERBOSE_KF){
     printf("______________________________________________\n");
     printf("Before\n");
@@ -179,7 +179,7 @@ void Kalman_Filter(){
 
   transp(C, temp1, 2, 4);
   mult(KF_cov,temp1,cov_Ct,4,4,4,2);
-  mult(C,cov_Ct,temp1,2,4,4,2); 
+  mult(C,cov_Ct,temp1,2,4,4,2);
   add(temp1, Q, temp2, 2,2,2,2);
   inv(temp2, temp1);
   mult(cov_Ct,temp1,K,4,2,2,2);
@@ -189,13 +189,13 @@ void Kalman_Filter(){
   add(Z, temp1, temp2, 2,1,2,1);
   mult(K, temp2, temp1, 4,2,2,1);
   add(X, temp1, X_new, 4,1,4,1);
-   
+
   mult(K,C,temp1, 4,2,2,4);
   scalar_mult(-1, temp1, temp2, 4,4);
   add(eye4, temp2, temp1, 4,4,4,4);
   mult(KF_cov, temp1, temp2, 4,4,4,4);
   copy_matrix(temp2, KF_cov, 4,4);
-    
+
   _robot.pos.x   = X_new[0][0];
   _robot.pos.y   = X_new[1][0];
   _robot.speed.x = X_new[2][0];
@@ -206,7 +206,7 @@ void Kalman_Filter(){
     printf("After\n");
     printf("Cov matrix\n");
     print_matrix(KF_cov, 4,4);
-  
+
     printf("X matrix\n");
     print_matrix(X_new, 4,1);
   }
@@ -247,10 +247,10 @@ int main()
         controller_get_acc();
       }
     else{
-      controller_get_encoder();  
+      controller_get_encoder();
     }
 
-    
+
 
     KF_Update_Cov_Matrix((double) time_step/1000);
 
@@ -273,11 +273,11 @@ int main()
     trajectory_1(dev_left_motor, dev_right_motor,time_end_calibration);
 //    trajectory_2(dev_left_motor, dev_right_motor,time_end_calibration);
   }
-  
+
   // Close the log file
   if(fp != NULL)
     fclose(fp);
-    
+
    // End of the simulation
   wb_robot_cleanup();
 
@@ -336,7 +336,7 @@ void controller_get_acc()
 
   double accfront = ( _meas.acc[1] - _meas.acc_mean[1]);
   //double accside = ( _meas.acc[0] - _meas.acc_mean[0]);
-  
+
 
   double heading_tmp = _robot.pos.heading;
   ///////HEADING/////////
@@ -348,7 +348,7 @@ void controller_get_acc()
   double deltaright=_meas.right_enc-_meas.prev_right_enc;
   deltaleft  *= WHEEL_RADIUS;
   deltaright *= WHEEL_RADIUS;
-  double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step );
+  double omega = -( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step );
   _robot.pos.heading += omega * time_step;
   ///////////////////////
 
@@ -407,7 +407,7 @@ void controller_get_gps(){
  * @param[in]  time  The time
  */
 void controller_print_log()
-{  
+{
   if( fp != NULL){
     fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
             wb_robot_get_time(), _robot.pos.x, _robot.pos.y , _robot.pos.heading, _meas.gps[0], _meas.gps[2],

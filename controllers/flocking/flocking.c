@@ -253,7 +253,7 @@ void reynolds_rules() {
         avg_loc[0] += rf[i].pos.x;
         avg_loc[1] += rf[i].pos.y;
 	}
-	
+
 
 	avg_speed[0] /= FLOCK_SIZE-1;
     avg_speed[1] /= FLOCK_SIZE-1;
@@ -315,7 +315,7 @@ void reynolds_rules() {
 //!!! Ici y a peut-être un problème, la migration devrait pas dépendre de la distance
                 rf[robot_id].rey_speed.x += 0.01;
 	     //rf[robot_id].rey_speed.y += 0.01;
-	     
+
   	     //rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*(migr[0]-rf[robot_id].pos.x);
                 //rf[robot_id].rey_speed.y -= MIGRATION_WEIGHT*(migr[1]-rf[robot_id].pos.y); //y axis of webots is inverted
 
@@ -341,23 +341,23 @@ void compute_wheel_speeds(float *msl, float *msr)
 	float Kw = 0.5;  // Rotational control coefficient
 	float range = sqrtf(x*x + y*y);	  // Distance to the wanted position
 	float bearing = atan2(y, x);	  // Orientation of the wanted position
-	
+
           if(robot_id==4) printf("Bearing: %f \n", bearing);
 	// Compute forward control
 	float u = Ku*range*cosf(bearing-rf[robot_id].pos.heading);
-	
+
 	// Compute rotational control
 	float w = Kw*(bearing-rf[robot_id].pos.heading);
-	
+
 	// Convert to wheel speeds!
 	*msl = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
-            
+
            if(robot_id==4) printf("Modified speeds: %f, %f \n", *msl,*msr);
 	limit(msl,MAX_SPEED);
 	limit(msr,MAX_SPEED);
-	
-            
+
+
             if(robot_id==4) printf("Limited speeds: %f, %f \n", *msl,*msr);
             *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
             *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;
@@ -398,10 +398,10 @@ int main()
   init_devices(time_step);
   printf("Spot 1 \n");
   while (wb_robot_step(time_step) != -1)  {
-  
+
     if(robot_id==4)
       printf(" \n");
-    
+
     if(robot_id==4)
       printf("Robot id: %d \n", robot_id);
     sprintf(outbuffer,"%1d#%f#%f#%f#%f#%f",robot_id,rf[robot_id].pos.x,rf[robot_id].pos.y, rf[robot_id].pos.heading, rf[robot_id].speed.x, rf[robot_id].speed.y);
@@ -435,7 +435,7 @@ int main()
     // if (robot_id==0)printf("Final speed: %g %g %g %g %g %g %g\n\n", rf[robot_id].rey_speed.x, rf[robot_id].rey_speed.y, msl, msr, rf[robot_id].pos.x,rf[robot_id].pos.y, rf[robot_id].pos.heading);
     wb_motor_set_velocity(dev_left_motor, msl);
     wb_motor_set_velocity(dev_right_motor, msr);
-    
+
 
     wb_robot_step(time_step);
   // Use one of the two trajectories.
@@ -502,8 +502,8 @@ void controller_get_encoder()
 
   _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
 
-  
-    
+
+
   double deltaright=_meas.right_enc-_meas.prev_right_enc;
 
   deltaleft  *= WHEEL_RADIUS;
@@ -516,8 +516,8 @@ void controller_get_encoder()
 
   double speed_wx = speed * cos(a);
   double speed_wy = speed * sin(a);
-  
-  
+
+
   //A enlever à terme
   rf[robot_id].speed.x = speed_wx;
   rf[robot_id].speed.y = speed_wy;

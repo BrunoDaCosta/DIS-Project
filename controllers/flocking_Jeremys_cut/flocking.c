@@ -101,10 +101,9 @@ WbDeviceTag dev_left_encoder;
 WbDeviceTag dev_right_encoder;
 WbDeviceTag dev_left_motor; //handler for left wheel of the robot
 WbDeviceTag dev_right_motor; //handler for the right wheel of the robot
-/*Webots 2018b*/
 
-int e_puck_matrix[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
-//int e_puck_matrix[16] = {17,29,12,10,8,-38,-56,-76,-72,-58,-36,8,10,12,28,18}; // Crossing
+//int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
+int Interconn[16] = {17,29,12,10,8,-38,-56,-76,-72,-58,-36,8,10,12,28,18}; // Crossing
 
 WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
 WbDeviceTag receiver;		// Handle for the receiver node
@@ -244,7 +243,7 @@ void update_self_motion(int msl, int msr) {
 /*
  * Computes wheel speed given a certain X,Z speed
  */
-void compute_wheel_speeds(int *msl, int *msr)
+void compute_wheel_speeds(float *msl, float *msr)
 {
 	// Compute wanted position from Reynold's speed and current location
 	float x = speed[robot_id][0]*cosf(loc[robot_id][2]) + speed[robot_id][1]*sinf(loc[robot_id][2]); // x in robot coordinates
@@ -264,8 +263,8 @@ void compute_wheel_speeds(int *msl, int *msr)
 	*msl = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 
-	limit(msl,MAX_SPEED);
-	limit(msr,MAX_SPEED);
+	limitf(msl,MAX_SPEED);
+	limitf(msr,MAX_SPEED);
 }
 
 
@@ -365,41 +364,40 @@ void initial_pos(void){
     prev_loc[robot_id][0] = loc[robot_id][0];
     prev_loc[robot_id][1] = loc[robot_id][1];
     initialized[robot_id] = 1;
-	/*char *inbuffer;
-	int rob_nb;
-	float rob_x, rob_z, rob_theta; // Robot position and orientation
-
-	while (initialized[robot_id] == 0) {
-
-		// wait for message
-		while (wb_receiver_get_queue_length(receiver) == 0)	wb_robot_step(TIME_STEP);
-
-		inbuffer = (char*) wb_receiver_get_data(receiver);
-		sscanf(inbuffer,"%d#%f#%f#%f##%f#%f",&rob_nb,&rob_x,&rob_z,&rob_theta, &migr[0], &migr[1]);
-		// Only info about self will be taken into account at first.
-
-        // robot_nb %= FLOCK_SIZE;
-		if (rob_nb == robot_id) {
-			// Initialize self position
-			loc[rob_nb][0] = rob_x; 		// x-position
-			loc[rob_nb][1] = rob_z; 		// z-position
-			loc[rob_nb][2] = rob_theta; 		// theta
-			prev_loc[rob_nb][0] = loc[rob_nb][0];
-			prev_loc[rob_nb][1] = loc[rob_nb][1];
-			initialized[rob_nb] = 1; 		// initialized = true
-		}
-		wb_receiver_next_packet(receiver);
-	}*/
 }
+
+void braitenberg(float* msl, float* msr){
+    int i;				// Loop counter
+    float factor = 10;
+    float bmsl=0, bmsr=0;
+    int distances[NB_SENSORS];	// Array for the distance sensor readings
+    /* Braitenberg */
+    for (i=0;i<NB_SENSORS;i++){
+        distances[i]=wb_distance_sensor_get_value(ds[i]);
+        if(lookuptable_sensor(distances[i])!=1){
+            bmsr += 200*(1/lookuptable_sensor(distances[i])) * Interconn[i] * factor;
+            bmsl += 200*(1/lookuptable_sensor(distances[i])) * Interconn[i+NB_SENSORS] * factor;
+        }
+    }
+
+    if (robot_id==4) printf("Before Braitenberg: %g %g\n", *msl, *msr);
+
+    *msl += bmsl/400*MAX_SPEED_WEB/1000;
+    *msr += bmsr/400*MAX_SPEED_WEB/1000;
+
+    if (robot_id==4) printf("After Braitenberg: %g %g %g %g\n", *msl, *msr,bmsl, bmsr);
+
+}
+
 
 /*
  * Main function
  */
 int main(){
 
-	int msl, msr;			// Wheel speeds
+	float msl, msr;			// Wheel speeds
 	float msl_w, msr_w;
-	int bmsl, bmsr, sum_sensors;	// Braitenberg parameters
+	//int bmsl, bmsr, sum_sensors;	// Braitenberg parameters
 	int i;				// Loop counter
 	int rob_nb;			// Robot number
 	float rob_x, rob_z, rob_theta;  // Robot position and orientation
@@ -429,24 +427,6 @@ int main(){
 
 	// Forever
 	for(;;){
-		bmsl = 0; bmsr = 0;
-		sum_sensors = 0;
-		max_sens = 0;
-		/* Braitenberg */
-		for(i=0;i<NB_SENSORS;i++) {
-			distances[i]=wb_distance_sensor_get_value(ds[i]); //Read sensor values
-			sum_sensors += distances[i]; // Add up sensor values
-			max_sens = max_sens>distances[i]?max_sens:distances[i]; // Check if new highest sensor value
-
-			// Weighted sum of distance sensor values for Braitenberg vehicle
-			bmsr += e_puck_matrix[i] * distances[i];
-			bmsl += e_puck_matrix[i+NB_SENSORS] * distances[i];
-		}
-
-		// Adapt Braitenberg values (empirical tests)
-		bmsl/=MIN_SENS; bmsr/=MIN_SENS;
-		bmsl+=66; bmsr+=72;
-
 		/* Get information */
 		int count = 0;
 		while (wb_receiver_get_queue_length(receiver) > 0 && count < FLOCK_SIZE)
@@ -501,21 +481,15 @@ int main(){
 		// Compute wheels speed from Reynold's speed
 		compute_wheel_speeds(&msl, &msr);
 
-		// Adapt speed instinct to distance sensor values
-		if (sum_sensors > NB_SENSORS*MIN_SENS) {
-			msl -= msl*max_sens/(2*MAX_SENS);
-			msr -= msr*max_sens/(2*MAX_SENS);
-		}
-
 		// Add Braitenberg
-		msl += bmsl;
-		msr += bmsr;
+        braitenberg(&msl, & msr);
 
 		// Set speed
 		msl_w = msl*MAX_SPEED_WEB/1000;
 		msr_w = msr*MAX_SPEED_WEB/1000;
+        if (robot_id==4) printf("Just before sending: %g %g\n", msl_w, msr_w);
 		wb_motor_set_velocity(dev_left_motor, msl_w);
-                      wb_motor_set_velocity(dev_right_motor, msr_w);
+        wb_motor_set_velocity(dev_right_motor, msr_w);
 
 		// Send current position to neighbors, uncomment for I15, don't forget to add the declaration of "outbuffer" at the begining of this function.
 		/*Implement your code here*/
@@ -569,49 +543,45 @@ void odometry_update(int time_step){
  */
 void controller_get_encoder()
 {
-  int time_step = wb_robot_get_basic_time_step();
-  // Store previous value of the left encoder
-  _meas.prev_left_enc = _meas.left_enc;
+    int time_step = wb_robot_get_basic_time_step();
+    // Store previous value of the left encoder
+    _meas.prev_left_enc = _meas.left_enc;
+    _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
+    double deltaleft=_meas.left_enc-_meas.prev_left_enc;
+    //if(robot_id==4) printf("Test %g %d\n", deltaleft, isnan(deltaleft));
+    if (isnan(deltaleft)==-1) deltaleft=0;
+    // Store previous value of the right encoder
+    _meas.prev_right_enc = _meas.right_enc;
+    _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
+    double deltaright=_meas.right_enc-_meas.prev_right_enc;
+    if (isnan(deltaright)==-1) deltaright=0;
 
-  _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
-  printf("Test %g\n", _meas.left_enc);
+    //if(robot_id==4) printf("Test: %g %g\n", deltaright, deltaleft);
+    deltaleft  *= WHEEL_RADIUS;
+    deltaright *= WHEEL_RADIUS;
 
-  double deltaleft=_meas.left_enc-_meas.prev_left_enc;
-  // Store previous value of the right encoder
-  _meas.prev_right_enc = _meas.right_enc;
+    double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step ); //ADDED MINUS TO TEST --JEREMY
+    double vel = ( deltaright + deltaleft ) / ( 2.0 * time_step );
 
-  _meas.right_enc = wb_position_sensor_get_value(dev_right_encoder);
+    double a = loc[robot_id][2];
+    //if(robot_id==4) printf("Angle: %g, dr: %g, dl: %g, Time step %d\n",a, deltaright, deltaleft, time_step);
 
+    double speed_wx = vel * cos(a);
+    double speed_wy = vel * sin(a);
 
+    //A enlever à terme
+    speed[robot_id][0] = speed_wx;
+    speed[robot_id][1] = speed_wy;
+    loc[robot_id][0] += speed[robot_id][0] * time_step;
+    loc[robot_id][1] += speed[robot_id][1] * time_step;
+    loc[robot_id][2] += omega * time_step;
+    if (loc[robot_id][2]>M_PI) loc[robot_id][2]-=2*M_PI;
+    if (loc[robot_id][2]<-M_PI) loc[robot_id][2]+=2*M_PI;
+    //if(robot_id==4)
+        //printf("In odometry: %g %g\n", _meas.left_enc, _meas.right_enc);
 
-  double deltaright=_meas.right_enc-_meas.prev_right_enc;
-
-  deltaleft  *= WHEEL_RADIUS;
-  deltaright *= WHEEL_RADIUS;
-
-  double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step ); //ADDED MINUS TO TEST --JEREMY
-  double vel = ( deltaright + deltaleft ) / ( 2.0 * time_step );
-
-  double a = loc[robot_id][2];
-  if(robot_id==4) printf("Angle: %g, dr: %g, dl: %g, Time step %d\n",a, deltaright, deltaleft, time_step);
-
-  double speed_wx = vel * cos(a);
-  double speed_wy = vel * sin(a);
-
-
-  //A enlever à terme
-  speed[robot_id][0] = speed_wx;
-  speed[robot_id][1] = speed_wy;
-  loc[robot_id][0] += speed[robot_id][0] * time_step;
-  loc[robot_id][1] += speed[robot_id][1] * time_step;
-  loc[robot_id][2] += omega * time_step;
-  if (loc[robot_id][2]>M_PI) loc[robot_id][2]-=2*M_PI;
-  if (loc[robot_id][2]<-M_PI) loc[robot_id][2]+=2*M_PI;
-  if(robot_id==4)
-      printf("In odometry: %g %g\n", _meas.left_enc, _meas.right_enc);
-
-  if(VERBOSE_ENC)
-    printf("ROBOT enc : x: %g  y: %g heading: %g\n", loc[robot_id][0], loc[robot_id][1], loc[robot_id][2]);
+    if(VERBOSE_ENC)
+        printf("ROBOT enc : x: %g  y: %g heading: %g\n", loc[robot_id][0], loc[robot_id][1], loc[robot_id][2]);
 }
 
 void controller_get_acc()
@@ -633,7 +603,7 @@ void controller_get_acc()
   double deltaright=_meas.right_enc-_meas.prev_right_enc;
   deltaleft  *= WHEEL_RADIUS;
   deltaright *= WHEEL_RADIUS;
-  double omega = ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step );
+  double omega = - ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step );
   loc[robot_id][2] += omega * time_step;
   if (loc[robot_id][2]>M_PI) loc[robot_id][2]-=2*M_PI;
   if (loc[robot_id][2]<-M_PI) loc[robot_id][2]+=2*M_PI;

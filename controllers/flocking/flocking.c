@@ -26,7 +26,7 @@
 
 // Odometry type
 #define ODOMETRY_ACC false
-#define ACTIVATE_KALMAN false
+#define ACTIVATE_KALMAN true
 
 
 /*CONSTANTES*/
@@ -246,7 +246,7 @@ void reynolds_rules() {
 
 	/* Compute averages over the whole flock */
 	for(i=0; i<FLOCK_SIZE; i++) {
-        printf("Check: %g %g %g %g\n", rf[i].rel_speed.x, rf[i].rel_speed.y, rf[i].rel_pos.x, rf[i].rel_pos.y);
+        //printf("Check: %g %g %g %g\n", rf[i].rel_speed.x, rf[i].rel_speed.y, rf[i].rel_pos.x, rf[i].rel_pos.y);
 		if (i == robot_id) continue; // don't consider yourself for the average
         avg_speed[0] += rf[i].rel_speed.x;
         avg_speed[1] += rf[i].rel_speed.y;
@@ -276,17 +276,11 @@ void reynolds_rules() {
   	   if (k != robot_id) {        // Loop on flockmates only
 	      // If neighbor k is too close (Euclidean distance)
 	      if (sqrt(pow(rf[robot_id].rel_pos.x-rf[k].rel_pos.x,2)+pow(rf[robot_id].rel_pos.y-rf[k].rel_pos.y,2)) < RULE2_THRESHOLD) {
-  	         float delta_x = rf[k].rel_pos.x;//rf[robot_id].pos.x -rf[k].pos.x;
-  	         float delta_y = rf[k].rel_pos.y;//rf[robot_id].pos.y -rf[k].pos.y;
-  	         float value = 1/sqrt(pow(delta_x,2)+pow(delta_y,2));
-  	         float angle = atan2(delta_y,delta_x);
+              if (rf[k].rel_pos.x==0 && rf[k].rel_pos.y ==0) continue;
+  	         float value = 1/sqrt(pow(rf[k].rel_pos.x,2)+pow(rf[k].rel_pos.y,2));
+  	         float angle = atan2(rf[k].rel_pos.y,rf[k].rel_pos.x);
   	         dispersion[0] += value*cos(angle);
   	         dispersion[1] += value*sin(angle);
-
-                    //dispersion[0] += 1/(rf[robot_id].pos.x -rf[k].pos.x);
-                    //dispersion[1] += 1/(rf[robot_id].pos.y -rf[k].pos.y);
-                    nb_disp +=1;
-                //if (robot_id==0) printf("%f %f %f \n", dispersion[0], rf[robot_id].pos.x, rf[k].pos.x);
   	       }
                }
 	}
@@ -299,15 +293,16 @@ void reynolds_rules() {
            // printf("id = %d, cx = %f, cy = %f\n", robot_id, cohesion[0], cohesion[1]);
 
 	//if(robot_id == 3) // print only for 1 robot
-	//printf("id = %d, %f %f, %f %f, %f %f\n", robot_id, cohesion[0], -cohesion[1], dispersion[0], -dispersion[1], consistency[0], -consistency[1]);
+	  // printf("id = %d, %f %f, %f %f, %f %f\n", robot_id, cohesion[0], -cohesion[1], dispersion[0], -dispersion[1], consistency[0], -consistency[1]);
     /*if (robot_id==0)
         printf("Before: %g %f %f %f\n", rf[robot_id].speed.x, cohesion[0], dispersion[0], consistency[0]);
 */
 // !!! FROM HERE: Maybe speed should be replaced by "wanted speed"
     rf[robot_id].rey_speed.x = cohesion[0]*RULE1_WEIGHT + dispersion[0]*RULE2_WEIGHT + consistency[0]*RULE3_WEIGHT;
     rf[robot_id].rey_speed.y = cohesion[1]*RULE1_WEIGHT + dispersion[1]*RULE2_WEIGHT + consistency[1]*RULE3_WEIGHT;
-    //if(robot_id==4) printf("X Cohesion: %f, dispersion: %f, consistency: %f \n", cohesion[0]*RULE1_WEIGHT,dispersion[0]*RULE2_WEIGHT,consistency[0]*RULE3_WEIGHT);
-    //if(robot_id==4) printf("Y Cohesion: %f, dispersion: %f, consistency: %f \n", cohesion[1]*RULE1_WEIGHT,dispersion[1]*RULE2_WEIGHT,consistency[1]*RULE3_WEIGHT);
+
+    if(robot_id==4) printf("X Cohesion: %f, dispersion: %f, consistency: %f \n", cohesion[0]*RULE1_WEIGHT,dispersion[0]*RULE2_WEIGHT,consistency[0]*RULE3_WEIGHT);
+    if(robot_id==4) printf("Y Cohesion: %f, dispersion: %f, consistency: %f \n", cohesion[1]*RULE1_WEIGHT,dispersion[1]*RULE2_WEIGHT,consistency[1]*RULE3_WEIGHT);
     //if(robot_id==4) printf("nb dispersion: %d \n",nb_disp);
         //if(robot_id==4) printf("Migratory speed before: %g %g\n", rf[robot_id].rey_speed.x, rf[robot_id].rey_speed.y);
 
@@ -693,7 +688,7 @@ void controller_print_log()
         rf[other_robot_id].rel_speed.y = (1/((float) time_step))*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].rel_prev_pos.y);
 
         //printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, my theta %g, speed x:%g, speed y:%g \n",robot_name,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y,-atan2(y,x),rf[robot_id].pos.heading, rf[other_robot_id].rel_speed.x, rf[other_robot_id].rel_speed.y);
-        printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, sp x:%g, sp y:%g, queue length: %d\n",robot_name,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y,-atan2(y,x),rf[other_robot_id].rel_speed.x, rf[other_robot_id].rel_speed.y, wb_receiver_get_queue_length(receiver));
+        //printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, sp x:%g, sp y:%g, queue length: %d\n",robot_name,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y,-atan2(y,x),rf[other_robot_id].rel_speed.x, rf[other_robot_id].rel_speed.y, wb_receiver_get_queue_length(receiver));
 
  		wb_receiver_next_packet(receiver);
  	}

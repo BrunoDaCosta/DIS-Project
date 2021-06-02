@@ -20,7 +20,7 @@
 #define VERBOSE_ENC false
 #define VERBOSE_ACC false
 
-#define VERBOSE_POS false
+#define VERBOSE_POS true
 #define VERBOSE_ACC_MEAN false
 // #define VERBOSE_KF false
 
@@ -44,7 +44,7 @@
 #define MAX_SPEED_WEB     6.27    // Maximum speed webots
 #define MAX_SPEED         800     // Maximum speed
 
-#define RULE1_THRESHOLD     0.2           // Threshold to activate aggregation rule. default 0.20
+#define RULE1_THRESHOLD     0.25           // Threshold to activate aggregation rule. default 0.20
 #define RULE1_WEIGHT        (0.6/10)      // Weight of aggregation rule. default 0.6/10
 
 #define RULE2_THRESHOLD     0.15          // Threshold to activate dispersion rule. default 0.15
@@ -122,7 +122,7 @@ double time_end_calibration = 0;
 int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
 float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
-//float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, -M_PI/2}};
+
 
 float migr[2] = {2, 0};	                // Migration vector
 
@@ -226,6 +226,9 @@ void braitenberg(float* msl, float* msr){
             bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * factor;
     }
   }
+  //Correction
+  bmsr /=10;
+  bmsl /=10;
 
   // Adapt Braitenberg values (empirical tests)
   *msl += bmsl/400*MAX_SPEED_WEB/1000;
@@ -277,15 +280,21 @@ void reynolds_rules() {
 
 	/* Rule 2 - Dispersion/Separation: keep far enough from flockmates */
 	for (k=0;k<FLOCK_SIZE;k++) {
-		if (k != robot_id) {        // Loop on flockmates only
-			// If neighbor k is too close (Euclidean distance)
-			if (sqrt(pow(rf[robot_id].pos.x-rf[k].pos.x,2)+pow(rf[robot_id].pos.y-rf[k].pos.y,2)) < RULE2_THRESHOLD) {
-                dispersion[0] += 1/(rf[robot_id].pos.x -rf[k].pos.x);
-                dispersion[1] += 1/(rf[robot_id].pos.y -rf[k].pos.y);
-                nb_disp +=1;
+  	   if (k != robot_id) {        // Loop on flockmates only
+	      // If neighbor k is too close (Euclidean distance)
+	      if (sqrt(pow(rf[robot_id].pos.x-rf[k].pos.x,2)+pow(rf[robot_id].pos.y-rf[k].pos.y,2)) < RULE2_THRESHOLD) {
+  	         float delta_x = rf[robot_id].pos.x -rf[k].pos.x;
+  	         float delta_y = rf[robot_id].pos.y -rf[k].pos.y;
+  	         float value = 1/sqrt(pow(delta_x,2)+pow(delta_y,2));
+  	         float angle = atan2(delta_y,delta_x);
+  	         dispersion[0] += value*cos(angle);
+  	         dispersion[1] += value*sin(angle);
+                    //dispersion[0] += 1/(rf[robot_id].pos.x -rf[k].pos.x);
+                    //dispersion[1] += 1/(rf[robot_id].pos.y -rf[k].pos.y);
+                    nb_disp +=1;
                 //if (robot_id==0) printf("%f %f %f \n", dispersion[0], rf[robot_id].pos.x, rf[k].pos.x);
-			}
-		}
+  	       }
+               }
 	}
 	/* Rule 3 - Consistency/Alignment: match the speeds of flockmates */
 
@@ -324,8 +333,8 @@ void reynolds_rules() {
                 if(abs(migr[0]-rf[robot_id].pos.x)>MIGRATION_WEIGHT)
                      rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
                 
-                if(abs(migr[1]-rf[robot_id].pos.y)>MIGRATION_WEIGHT)
-                     rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y); //y axis of webots is inverted
+                //if(abs(migr[1]-rf[robot_id].pos.y)>MIGRATION_WEIGHT)
+                     //rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y); //y axis of webots is inverted
 
 	}
     // if (robot_id==0) printf("Speed %g %g \n", rf[robot_id].speed.x, rf[robot_id].speed.y);
@@ -355,18 +364,19 @@ void compute_wheel_speeds(float *msl, float *msr)
 
 	// Compute rotational control
 	float w = Kw*(bearing-rf[robot_id].pos.heading);
-           printf("Heading: %f Bearing: %f \n",rf[robot_id].pos.heading,bearing);
-           printf("U: %f W: %f \n",u,w);
+           if(robot_id==4) printf("Heading: %f Bearing: %f \n",rf[robot_id].pos.heading,bearing);
+           if(robot_id==4) printf("U: %f W: %f \n",u,w);
 	// Convert to wheel speeds!
 	*msl = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
-
+           if(robot_id==1) printf("MSL: %f MSR: %f \n",*msl,*msr);
 	limit(msl,MAX_SPEED);
 	limit(msr,MAX_SPEED);
 
 
             *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
             *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;
+          if(robot_id==1) printf("After limit MSL: %f MSR: %f \n",*msl,*msr);
 }
 //#############################################################################
 // !!!!!  SI TU ES PERDU LE MAIN EST ICI
@@ -423,8 +433,10 @@ int main()
 
     //if (robot_id==0) printf("Before Braitenberg: %g %g\n", msl, msr);
     // Add Braitenberg
+    if(robot_id==1) printf("Before MSL: %f MSR: %f \n",msl,msr);
     braitenberg(&msl, &msr);
-
+    if(robot_id==1) printf("Braiten MSL: %f MSR: %f \n",msl,msr);
+  
     // if (robot_id==0)printf("Final speed: %g %g %g %g %g %g %g\n\n", rf[robot_id].rey_speed.x, rf[robot_id].rey_speed.y, msl, msr, rf[robot_id].pos.x,rf[robot_id].pos.y, rf[robot_id].pos.heading);
     wb_motor_set_velocity(dev_left_motor, msl);
     wb_motor_set_velocity(dev_right_motor, msr);

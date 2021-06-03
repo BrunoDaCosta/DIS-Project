@@ -91,7 +91,7 @@ void Kalman_Filter(double* pos_x, double* pos_y, double* speed_x, double* speed_
     copy_matrix(temp2, KF_cov, 4,4);
 
     *pos_x   = X_new[0][0];
-    *pos_x   = X_new[1][0];
+    *pos_y   = X_new[1][0];
     *speed_x = X_new[2][0];
     *speed_y = X_new[3][0];
 
@@ -102,6 +102,8 @@ void Kalman_Filter(double* pos_x, double* pos_y, double* speed_x, double* speed_
 
         printf("X matrix\n");
         print_matrix(X_new, 4,1);
+
+        printf("Position from Kalman: %g %g\n", X_new[0][0], X_new[1][0]);
     }
 }
 

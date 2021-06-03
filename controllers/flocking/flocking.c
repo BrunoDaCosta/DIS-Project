@@ -20,7 +20,7 @@
 #define VERBOSE_ENC false
 #define VERBOSE_ACC false
 
-#define VERBOSE_POS true
+#define VERBOSE_POS false
 #define VERBOSE_ACC_MEAN false
 // #define VERBOSE_KF false
 
@@ -44,10 +44,10 @@
 #define MAX_SPEED_WEB     6.27    // Maximum speed webots
 #define MAX_SPEED         800     // Maximum speed
 
-#define RULE1_THRESHOLD     0.15           // Threshold to activate aggregation rule. default 0.20
+#define RULE1_THRESHOLD     0.20           // Threshold to activate aggregation rule. default 0.20
 #define RULE1_WEIGHT        (2.0/10)      // Weight of aggregation rule. default 0.6/10
 
-#define RULE2_THRESHOLD     0.10          // Threshold to activate dispersion rule. default 0.15
+#define RULE2_THRESHOLD     0.15          // Threshold to activate dispersion rule. default 0.15
 #define RULE2_WEIGHT        (0.02/10) // Weight of dispersion rule. default 0.02/10
 
 #define RULE3_WEIGHT        (1.0/10)      // Weight of consistency rule. default 1.0/10
@@ -374,13 +374,13 @@ void odometry_update(int time_step){
   if (ACTIVATE_KALMAN &&   time_now_s - last_gps_time_s >= 1.0f){
     last_gps_time_s = time_now_s;
     controller_get_gps();
-    if (VERBOSE_POS && robot_id==0)  printf("ROBOT pose: %g %g %g\n", rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading);
+    if (VERBOSE_POS)  printf("ROBOT %d pose:\t %g %g %g | GPS data:%g %g\n", robot_id, rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading, _meas.gps[0], _meas.gps[2]);
     //printf("ACC1: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
-    if (robot_id==0) printf("GPS data: %g %g\n", _meas.gps[0], _meas.gps[1]);
-    Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].speed.x, &rf[robot_id].speed.y, &_meas.gps[0], &_meas.gps[1]);
+    //if (robot_id==0) printf("GPS data: %g %g\n", _meas.gps[0], _meas.gps[1]);
+    Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].speed.x, &rf[robot_id].speed.y, &_meas.gps[0], &_meas.gps[2]);
     //print_cov_matrix();
     //printf("ACC2: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
-    if (VERBOSE_POS && robot_id==0)  printf("ROBOT pose after Kalman: %g %g %g\n\n", rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading);
+    if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading);
     }
 }
 
@@ -557,13 +557,17 @@ void controller_print_log()
  	char *inbuffer;	// Buffer for the receiver node
  	int other_robot_id;
     int iter = 0;
+    double x,y;
  	while (wb_receiver_get_queue_length(receiver) > 0) {
         iter+=1;
  		inbuffer = (char*) wb_receiver_get_data(receiver);
  		message_direction = wb_receiver_get_emitter_direction(receiver);
  		message_rssi = wb_receiver_get_signal_strength(receiver);
 
-        theta = -message_direction[0]*M_PI/2;
+        //theta = -message_direction[0]*M_PI/2;
+        y=message_direction[0];
+        x=-message_direction[2];
+        theta = -atan2(y,x);
  		range = sqrt((1/message_rssi));
 
  		other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!

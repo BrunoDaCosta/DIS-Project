@@ -9,8 +9,8 @@ WorldInfo {
   coordinateSystem "NUE"
 }
 Viewpoint {
-  orientation -0.9931345111565514 -0.11262694456245013 -0.03160718444222321 1.03351
-  position -2.597172694455872 3.9329249429256032 1.988471384865508
+  orientation -0.9635292931236138 -0.24191643377791902 -0.11440166240436599 1.1130089420354454
+  position -2.952864614148811 1.1291729103143453 0.49916997967011256
 }
 PointLight {
   intensity 0.5
@@ -524,13 +524,14 @@ DEF SUPERVISOR Robot {
   supervisor TRUE
 }
 DEF epuck0 Robot {
-  translation -2.9 0 0
-  rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
+  translation -2.899999999974182 -3.1987223580515894e-05 -1.1128932602584967e-11
+  rotation 3.3482923221031484e-06 0.9999999999887873 -3.3487679021700773e-06 -1.570799693910712
   children [
     GPS {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.5357892049752584e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -686,6 +687,7 @@ DEF epuck0 Robot {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.5357946148152118e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -1906,13 +1908,14 @@ DEF epuck0 Robot {
   cpuConsumption 1.11
 }
 DEF epuck1 Robot {
-  translation -2.9 0 0.1
-  rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
+  translation -2.899999999974182 -3.198722358051069e-05 0.09999999998887127
+  rotation 3.348292320834143e-06 0.9999999999887873 -3.3487679049601263e-06 -1.5707996939107172
   children [
     GPS {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.5357893744777502e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -2068,6 +2071,7 @@ DEF epuck1 Robot {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.5357942858696937e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -3288,13 +3292,14 @@ DEF epuck1 Robot {
   cpuConsumption 1.11
 }
 DEF epuck2 Robot {
-  translation -2.9 0 -0.1
-  rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
+  translation -2.8999999999902237 -3.198722358070498e-05 -0.10000000001112894
+  rotation 3.348287470151677e-06 0.9999999999887874 -3.3487727507579976e-06 -1.5707996948760463
   children [
     GPS {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 2.0887506058511672e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -3311,7 +3316,7 @@ DEF epuck2 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026 0.02 0
+        translation -0.026000000000000172 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -3450,6 +3455,7 @@ DEF epuck2 Robot {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position -9.828309598092751e-09
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -4666,17 +4672,18 @@ DEF epuck2 Robot {
       0 0 0
     ]
   }
-  controller "flocking"
+  controller "formation_follower"
   cpuConsumption 1.11
 }
 DEF epuck3 Robot {
-  translation -2.9 0 0.2
-  rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
+  translation -2.8999999999902224 -3.198722358066855e-05 0.19999999998887125
+  rotation 3.3482874727052384e-06 0.9999999999887874 -3.348772746992008e-06 -1.5707996948760339
   children [
     GPS {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 2.0887504756935468e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -4693,7 +4700,7 @@ DEF epuck3 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026 0.02 0
+        translation -0.026000000000000172 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -4832,6 +4839,7 @@ DEF epuck3 Robot {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position -9.828311813936555e-09
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -6052,13 +6060,14 @@ DEF epuck3 Robot {
   cpuConsumption 1.11
 }
 DEF epuck4 Robot {
-  translation -2.9 0 -0.2
-  rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
+  translation -2.899999999964391 -3.1987223580472526e-05 -0.2000000000111287
+  rotation 3.348194189098855e-06 0.9999999999887873 -3.348866037168599e-06 -1.5707996939107118
   children [
     GPS {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 2.0887500757603967e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -6075,7 +6084,7 @@ DEF epuck4 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026 0.02 0
+        translation -0.026000000000000172 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -6214,6 +6223,7 @@ DEF epuck4 Robot {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 2.0887550654994855e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -6230,7 +6240,7 @@ DEF epuck4 Robot {
         }
       ]
       endPoint DEF EPUCK_RIGHT_WHEEL Solid {
-        translation 0.026 0.02 0
+        translation 0.026000000000000172 0.02 0
         rotation -1 0 0 0
         children [
           Transform {

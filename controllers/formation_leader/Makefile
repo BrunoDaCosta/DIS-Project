@@ -66,7 +66,7 @@
 ###-----------------------------------------------------------------------------
 
 ### Do not modify: this includes Webots global Makefile.include
-C_SOURCES = flocking.c kalman.c
+C_SOURCES = formation_leader.c kalman.c
 null :=
 space := $(null) $(null)
 WEBOTS_HOME_PATH=$(subst $(space),\ ,$(strip $(subst \,/,$(WEBOTS_HOME))))

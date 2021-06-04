@@ -9,8 +9,8 @@ WorldInfo {
   coordinateSystem "NUE"
 }
 Viewpoint {
-  orientation -0.9931345111565514 -0.11262694456245013 -0.03160718444222321 1.03351
-  position -2.597172694455872 3.9329249429256032 1.988471384865508
+  orientation -0.9635292931236138 -0.24191643377791902 -0.11440166240436599 1.1130089420354454
+  position -2.9848395202590083 2.5971036846618714 1.1111803942756362
 }
 PointLight {
   intensity 0.5
@@ -524,13 +524,14 @@ DEF SUPERVISOR Robot {
   supervisor TRUE
 }
 DEF epuck0 Robot {
-  translation -2.9 0 0
-  rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
+  translation -2.899999999974182 -3.198720128166216e-05 -1.1129803404322278e-11
+  rotation 3.3482819993219308e-06 0.9999999999887873 -3.348780083189636e-06 -1.5707996939107132
   children [
     GPS {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.5357892050152592e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -682,10 +683,13 @@ DEF epuck0 Robot {
           density -1
           mass 0.005
         }
+        linearVelocity 1.8419644885195056e-09 -4.751349980509502e-10 -1.469236114955585e-11
+        angularVelocity 2.1724280491997987e-10 1.6137284295647673e-12 -9.210441131198971e-08
       }
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.5357946148229658e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -715,6 +719,8 @@ DEF epuck0 Robot {
         name "right wheel"
         boundingObject USE EPUCK_WHEEL_BOUNDING_OBJECT
         physics USE EPUCK_WHEEL_PHYSICS
+        linearVelocity 1.8420073998240201e-09 -4.862843016851988e-10 2.3357226560059444e-11
+        angularVelocity 2.161416437605965e-10 1.6258932318688302e-12 -9.210486079698753e-08
       }
     }
     DEF EPUCK_INSIDE Transform {
@@ -1904,15 +1910,18 @@ DEF epuck0 Robot {
   }
   controller "formation_leader"
   cpuConsumption 1.11
+  linearVelocity 2.148626344448392e-09 -4.896714736754574e-10 3.250801451277846e-12
+  angularVelocity 2.1622956168201743e-10 2.649532741276737e-12 6.13733122040762e-08
 }
 DEF epuck1 Robot {
-  translation -2.9 0 0.1
-  rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
+  translation -2.899999999974182 -3.198720128165869e-05 0.09999999998887048
+  rotation 3.348281997990336e-06 0.9999999999887873 -3.3487800858984124e-06 -1.5707996939107183
   children [
     GPS {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.535789374517013e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -2064,10 +2073,13 @@ DEF epuck1 Robot {
           density -1
           mass 0.005
         }
+        linearVelocity 1.8419563684846648e-09 -4.751351756331195e-10 -1.4687089880766102e-11
+        angularVelocity 2.1748750847213096e-10 1.6029904651309223e-12 -9.210400545942787e-08
       }
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.535794285877032e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -2097,6 +2109,8 @@ DEF epuck1 Robot {
         name "right wheel"
         boundingObject USE EPUCK_WHEEL_BOUNDING_OBJECT
         physics USE EPUCK_WHEEL_PHYSICS
+        linearVelocity 1.841998637732428e-09 -4.862846570001619e-10 2.3358829140567092e-11
+        angularVelocity 2.1599550372596092e-10 1.6123795745727703e-12 -9.21044225598051e-08
       }
     }
     DEF EPUCK_INSIDE Transform {
@@ -3286,15 +3300,18 @@ DEF epuck1 Robot {
   }
   controller ""
   cpuConsumption 1.11
+  linearVelocity 2.148619858363556e-09 -4.896676841985298e-10 3.2544057416696798e-12
+  angularVelocity 2.162141476265806e-10 2.6332434116037596e-12 6.137369597284964e-08
 }
 DEF epuck2 Robot {
-  translation -2.9 0 -0.1
-  rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
+  translation -2.900000000000015 -3.198720128182522e-05 -0.10000000001112978
+  rotation 3.3483796045362952e-06 0.9999999999887874 -3.3486824773491776e-06 -1.5707996948760543
   children [
     GPS {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.535789599373865e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -3446,10 +3463,13 @@ DEF epuck2 Robot {
           density -1
           mass 0.005
         }
+        linearVelocity 2.7434123144713905e-09 -4.751346427862303e-10 -1.469068537872088e-11
+        angularVelocity 2.17262832533367e-10 -1.1462745037764355e-07 -1.386454891016351e-07
       }
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position -1.535793868367042e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -3479,6 +3499,8 @@ DEF epuck2 Robot {
         name "right wheel"
         boundingObject USE EPUCK_WHEEL_BOUNDING_OBJECT
         physics USE EPUCK_WHEEL_PHYSICS
+        linearVelocity -3.34026398128398e-09 -4.862844793304114e-10 2.3342638159657666e-11
+        angularVelocity 2.1503882079304104e-10 -1.1462539855078062e-07 1.6830815881786427e-07
       }
     }
     DEF EPUCK_INSIDE Transform {
@@ -4666,17 +4688,20 @@ DEF epuck2 Robot {
       0 0 0
     ]
   }
-  controller "flocking"
+  controller ""
   cpuConsumption 1.11
+  linearVelocity -2.2424791946383162e-10 -4.89669957853579e-10 3.2441316714843168e-12
+  angularVelocity 2.1629187460670606e-10 -1.1462641669058028e-07 1.483118028208904e-08
 }
 DEF epuck3 Robot {
-  translation -2.9 0 0.2
-  rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
+  translation -2.9000000000000137 -3.1987201281785324e-05 0.1999999999888704
+  rotation 3.3483796066572276e-06 0.9999999999887874 -3.3486824732759558e-06 -1.5707996948760419
   children [
     GPS {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.5357896567693688e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -4828,10 +4853,13 @@ DEF epuck3 Robot {
           density -1
           mass 0.005
         }
+        linearVelocity 2.7434059395535978e-09 -4.751346427464047e-10 -1.4692104285506025e-11
+        angularVelocity 2.1729682000582277e-10 -1.146273381072366e-07 -1.3864516891094474e-07
       }
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position -1.5357938920601555e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -4861,6 +4889,8 @@ DEF epuck3 Robot {
         name "right wheel"
         boundingObject USE EPUCK_WHEEL_BOUNDING_OBJECT
         physics USE EPUCK_WHEEL_PHYSICS
+        linearVelocity -3.340269960671434e-09 -4.862843017274803e-10 2.3339418236459563e-11
+        angularVelocity 2.1494026117490282e-10 -1.1462528628113357e-07 1.6830845651571253e-07
       }
     }
     DEF EPUCK_INSIDE Transform {
@@ -6050,15 +6080,18 @@ DEF epuck3 Robot {
   }
   controller ""
   cpuConsumption 1.11
+  linearVelocity -2.2425518449184435e-10 -4.896709763343243e-10 3.2412351196510047e-12
+  angularVelocity 2.1642481877087064e-10 -1.146263016451897e-07 1.4831517784589902e-08
 }
 DEF epuck4 Robot {
-  translation -2.9 0 -0.2
-  rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
+  translation -2.8999999999741823 -3.198720128163267e-05 -0.20000000001112955
+  rotation 3.3482820092248937e-06 0.9999999999887873 -3.348780074201324e-06 -1.57079969391072
   children [
     GPS {
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.535789366134108e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -6210,10 +6243,13 @@ DEF epuck4 Robot {
           density -1
           mass 0.005
         }
+        linearVelocity 1.8419593294914947e-09 -4.751362414335511e-10 -1.4688217852104057e-11
+        angularVelocity 2.1753508894442373e-10 1.5740898083459847e-12 -9.210415389340775e-08
       }
     }
     HingeJoint {
       jointParameters HingeJointParameters {
+        position 1.535793029283379e-08
         axis -1 0 0
         anchor 0 0.02 0
       }
@@ -6243,6 +6279,8 @@ DEF epuck4 Robot {
         name "right wheel"
         boundingObject USE EPUCK_WHEEL_BOUNDING_OBJECT
         physics USE EPUCK_WHEEL_PHYSICS
+        linearVelocity 1.8419999943996318e-09 -4.862844792931768e-10 2.3360801401513192e-11
+        angularVelocity 2.1629798269441254e-10 1.5807035679062945e-12 -9.210449004449784e-08
       }
     }
     DEF EPUCK_INSIDE Transform {
@@ -7432,4 +7470,6 @@ DEF epuck4 Robot {
   }
   controller ""
   cpuConsumption 1.11
+  linearVelocity 2.14861574461379e-09 -4.896711421703657e-10 3.2547494297804982e-12
+  angularVelocity 2.1624625990600854e-10 2.6015672037405634e-12 6.13735444120016e-08
 }

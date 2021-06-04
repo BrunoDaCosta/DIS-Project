@@ -572,7 +572,13 @@ void controller_print_log()
                       
                      
                       //theta = -atan2(y,x) + rf[robot_id].pos.heading;
-                      theta = message_direction[0]*M_PI/2 + rf[robot_id].pos.heading;
+                      //if(robot_id==4)printf("Rob %d from rob %d 0: %f, 1: %f, 2: %f \n", robot_id,other_robot_id,message_direction[0],message_direction[1],message_direction[2]);
+                      //theta = message_direction[0]*M_PI/2 + rf[robot_id].pos.heading;
+                      double y=message_direction[0];
+                      double x=-message_direction[2];
+                      theta = atan2(y,x) + rf[robot_id].pos.heading;
+                      //if(robot_id==4)printf("Rob %d from rob %d Theta: %f\n", robot_id,other_robot_id,theta);
+                      
                       //printf("Theta = %f\n", theta);
  		range = sqrt((1/message_rssi));
  		
@@ -584,6 +590,8 @@ void controller_print_log()
 
  		rf[other_robot_id].rel_pos.x = range*cos(theta);  // relative x pos
  		rf[other_robot_id].rel_pos.y = range*sin(theta);   // relative y pos
+ 		if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
+                      
  		//printf("Robot %d from %d, rel_x = %f, rel_y = %f\n", robot_id, other_robot_id, rf[other_robot_id].rel_pos.x, rf[other_robot_id].rel_pos.y);
 
         rf[other_robot_id].rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);

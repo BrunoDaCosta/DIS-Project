@@ -9,8 +9,8 @@ WorldInfo {
   coordinateSystem "NUE"
 }
 Viewpoint {
-  orientation -0.9635292931236138 -0.24191643377791902 -0.11440166240436599 1.1130089420354454
-  position -2.952864614148811 1.1291729103143453 0.49916997967011256
+  orientation -0.5478735626795853 -0.6318311151804823 -0.5482918941645654 2.064610212883076
+  position -3.012382105152436 0.9082019120034175 -0.0564532231148115
 }
 PointLight {
   intensity 0.5
@@ -3288,7 +3288,7 @@ DEF epuck1 Robot {
       0 0 0
     ]
   }
-  controller ""
+  controller "formation_follower"
   cpuConsumption 1.11
 }
 DEF epuck2 Robot {
@@ -3316,7 +3316,7 @@ DEF epuck2 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026000000000000172 0.02 0
+        translation -0.0260000000000002 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -4700,7 +4700,7 @@ DEF epuck3 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026000000000000172 0.02 0
+        translation -0.0260000000000002 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -6056,7 +6056,7 @@ DEF epuck3 Robot {
       0 0 0
     ]
   }
-  controller ""
+  controller "formation_follower"
   cpuConsumption 1.11
 }
 DEF epuck4 Robot {
@@ -6084,7 +6084,7 @@ DEF epuck4 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026000000000000172 0.02 0
+        translation -0.0260000000000002 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -6240,7 +6240,7 @@ DEF epuck4 Robot {
         }
       ]
       endPoint DEF EPUCK_RIGHT_WHEEL Solid {
-        translation 0.026000000000000172 0.02 0
+        translation 0.0260000000000002 0.02 0
         rotation -1 0 0 0
         children [
           Transform {
@@ -7440,6 +7440,6 @@ DEF epuck4 Robot {
       0 0 0
     ]
   }
-  controller ""
+  controller "formation_follower"
   cpuConsumption 1.11
 }

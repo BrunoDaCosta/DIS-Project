@@ -119,6 +119,13 @@ static FILE *fp;
 
 char* robot_name;
 
+float goal_range   = 0.0;
+float goal_bearing = 0.0;
+
+float leader_range = 0.0;
+float leader_bearing = 0.0;
+float leader_orientation = 0.0;
+
 //-----------------------------------------------------------------------------------//
 
 
@@ -130,7 +137,9 @@ static void controller_print_log();
 static bool controller_init_log(const char* filename);
 
 static void odometry_update(int time_step);
-static void send_ping();
+ void process_received_ping_messages(int time_step);
+ void update_leader_measurement(float new_leader_range, float new_leader_bearing, float new_leader_orientation);
+
 
 void init_devices(int ts);
 
@@ -171,8 +180,6 @@ void init_devices(int ts){
         wb_distance_sensor_enable(ds[i],ts);
     }
     wb_receiver_enable(receiver,ts);
-    
-    wb_keyboard_enable(64);
 
     sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
     robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
@@ -211,31 +218,39 @@ void braitenberg(float* msl, float* msr){
     *msr += bmsr/400*MAX_SPEED_WEB/1000;
 }
 
+void update_leader_measurement(float new_leader_range, float new_leader_bearing, float new_leader_orientation) {
+	leader_range = new_leader_range;
+	leader_bearing = new_leader_bearing;
+	leader_orientation = new_leader_orientation;
+}
+
 /*
  * Computes wheel speed given a certain X,Z speed
  */
-void compute_wheel_speeds(float *msl, float *msr)
-{
-	// Compute wanted position from Reynold's speed and current location
-	float Ku = 0.2;   // Forward control coefficient
-	float Kw = 0.3;  // Rotational control coefficient
-	float range = sqrtf(rf[robot_id].rey_speed.x*rf[robot_id].rey_speed.x +rf[robot_id].rey_speed.y*rf[robot_id].rey_speed.y);	  // Distance to the wanted position
-	float bearing = atan2(rf[robot_id].rey_speed.y, rf[robot_id].rey_speed.x);	  // Orientation of the wanted position
+void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr) {
+	// Define constants
+	float Ku = 2.0;
+	float Kw = 10.0;
+	float Kb = 1.0;
 
-	// Compute forward control
-	float u = Ku*range*cosf(bearing-rf[robot_id].pos.heading);
+	// Compute the range and bearing to the wanted position
+	float x = leader_range * cosf(leader_bearing);
+	float y = leader_range * sinf(leader_bearing);
+	float theta = leader_orientation;
+	x += goal_range * cosf(- M_PI + goal_bearing + theta);
+	y += goal_range * sinf(- M_PI + goal_bearing + theta);
+	float range = sqrtf(x*x + y*y); // This is the wanted position (range)
+	float bearing = atan2(y, x);    // This is the wanted position (bearing)
 
-	// Compute rotational control
-	float w = Kw*(bearing-rf[robot_id].pos.heading);
+	// Compute forward control (proportional to the projected forward distance to the leader
+	float u = Ku * range * cosf(bearing);
+	// Compute rotional control
+	float w = Kw * range * sinf(bearing) + Kb * leader_orientation;
+	// Of course, we can do a lot better by accounting for the speed of the leader (rather than just the position)
+
 	// Convert to wheel speeds!
-	*msl = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
-	*msr = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
-
-	limit(msl,MAX_SPEED);
-	limit(msr,MAX_SPEED);
-
-    *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
-    *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;
+	*msl = (int)((u - WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS));
+	*msr = (int)((u + WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS));
 }
 
 
@@ -243,6 +258,8 @@ void compute_wheel_speeds(float *msl, float *msr)
 int main()
 {
   float msl, msr;
+  const double *message_direction;
+  double message_rssi; // Received Signal Strength indicator
 
   if(ODOMETRY_ACC)
   {
@@ -258,62 +275,53 @@ int main()
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
   init_devices(time_step);
+  
+  //read the initial packets
+  int initialized = 0;
+  printf("Init\n");
+	while(!initialized){
+		/* Wait until leader sent range and bearing information */
+		while (wb_receiver_get_queue_length(receiver) == 0) {
+			wb_robot_step(64); // Executing the simulation for 64ms
+		}  
+		if (wb_receiver_get_queue_length(receiver) > 0) {
+            		printf("Get init from leader\n");
+                                 rbbuffer = (float*) wb_receiver_get_data(receiver);
+                                 initialized = 1;
+			goal_range = sqrt(rbbuffer[1]*rbbuffer[1] + rbbuffer[2]*rbbuffer[2]);
+			goal_bearing = -atan2(rbbuffer[1],rbbuffer[2]);
+			printf("Goal of robot %d: range = %.2f, bearing = %.2f\n", robot_id, goal_range, goal_bearing);
+			leader_range = goal_range;
+			leader_bearing = goal_bearing;
+			leader_orientation = rbbuffer[1];
+			printf("  Initial relative position: range = %.2f, bearing = %.2f, heading = %.2f\n", leader_range, leader_bearing, leader_orientation);
+		}
+            	wb_receiver_next_packet(receiver);
+		
+	}
+	msl=0; msr=0;  
 
-
-  send_ping();
   while (wb_robot_step(time_step) != -1)  {
-           msl=0; msr=0;
+    msl=0; msr=0;
     
-	int key = 0; 				// key that is used to determine how to adapt the speed
-	int key1 = wb_keyboard_get_key();	// key that is currently detected
-	//int key2 = wb_keyboard_get_key();	// key that might be currently detected as well
-	int key2 = key1;
-	int sign = 1;
+    float *inbuffer;	// Buffer for the receiver node
+ 	int other_robot_id;
 
-	sign = 1; // used to invert left and right when robot goes backwards
+ 	while (wb_receiver_get_queue_length(receiver) > 0) {
 
-	if(key2)  // if a second key is detected -> use the second one
-	{
-	   key=key2; 
-	   if(key1 == 317) sign = -1; // if going backwards set sign accordingly
-	}
-	else      // if no second key is detected -> use the first one
-	{
-	   key = key1;
-	   if(key1 == 317) sign = -1; // if going backwards set sign accordingly
-	}
+ 		inbuffer = (float*) wb_receiver_get_data(receiver);
 
-	// adapt speed to key pressed
-	if(key){
-		switch (key)
-		{
-		case 314 : {
-			msl += BIAS_SPEED-sign*DEL_SPEED;
-			msr += BIAS_SPEED+sign*DEL_SPEED;
-			break;}
-		case 316 : {
-			msl += BIAS_SPEED+sign*DEL_SPEED;
-			msr += BIAS_SPEED-sign*DEL_SPEED;
-			break;}	
-		case 315 : {
-			msl += BIAS_SPEED;
-			msr += BIAS_SPEED;
-			break;}	
-		case 317 : {
-			msl -= BIAS_SPEED;
-			msr -= BIAS_SPEED;
-			break;}
-		} 
-		//printf("Key: %d\n",key);
-	}
-	  
-	  
-	/*Webots 2018b*/
-	// Set speed
+
+ 		other_robot_id = inbuffer[0];  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
+                      printf("Robot_id = %d, angle = %f\n", other_robot_id, inbuffer[1]);
+                
+
+        wb_receiver_next_packet(receiver);
+    }
+    
     
 	
     odometry_update(time_step);
-    send_ping();
     controller_print_log();
 
 
@@ -517,16 +525,22 @@ void controller_print_log()
    return err;
  }
 
+ void process_received_ping_messages(int time_step) {
 
- /*
-  *  each robot sends a ping message, so the other robots can measure relative range and bearing to the sender.
-  *  the message contains the robot's name
-  *  the range and bearing will be measured directly out of message RSSI and direction
- */
- void send_ping() {
- 	char out[10];
- 	strcpy(out,robot_name);  // in the ping message we send the name of the robot.
- 	wb_emitter_send(emitter,out,strlen(out)+1);
+ 	float *inbuffer;	// Buffer for the receiver node
+ 	int other_robot_id;
+
+ 	while (wb_receiver_get_queue_length(receiver) > 0) {
+
+ 		inbuffer = (float*) wb_receiver_get_data(receiver);
+
+
+ 		other_robot_id = inbuffer[0];  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
+                      printf("Robot_id = %d, angle = %f\n", other_robot_id, inbuffer[1]);
+                
+
+        wb_receiver_next_packet(receiver);
+       }
  }
 
 

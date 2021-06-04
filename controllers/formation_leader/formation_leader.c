@@ -130,6 +130,7 @@ static void controller_print_log();
 static bool controller_init_log(const char* filename);
 
 static void odometry_update(int time_step);
+void process_received_ping_messages(int time_step);
 static void send_ping();
 
 void init_devices(int ts);
@@ -260,7 +261,7 @@ int main()
   init_devices(time_step);
 
 
-  send_ping();
+  //send_ping();
   while (wb_robot_step(time_step) != -1)  {
            msl=0; msr=0;
     
@@ -313,7 +314,8 @@ int main()
     
 	
     odometry_update(time_step);
-    send_ping();
+    printf("Sending ping");
+    //send_ping();
     controller_print_log();
 
 
@@ -524,10 +526,14 @@ void controller_print_log()
   *  the range and bearing will be measured directly out of message RSSI and direction
  */
  void send_ping() {
- 	char out[10];
- 	strcpy(out,robot_name);  // in the ping message we send the name of the robot.
- 	wb_emitter_send(emitter,out,strlen(out)+1);
+ 	float out[255];
+ 	out[0] = robot_id;
+ 	out[1] = rf[robot_id].pos.heading;
+ 	
+ 	wb_emitter_send(emitter,(char *)out,4*sizeof(float));
  }
+ 
+
 
 
 

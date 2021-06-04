@@ -391,7 +391,7 @@ void odometry_update(int time_step){
     if (VERBOSE_POS)  printf("ROBOT %d pose:\t %g %g %g | GPS data:%g %g\n", robot_id, rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading, _meas.gps[0], _meas.gps[2]);
     //printf("ACC1: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
     //if (robot_id==0) printf("GPS data: %g %g\n", _meas.gps[0], _meas.gps[1]);
-    Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].speed.x, &rf[robot_id].speed.y, &_meas.gps[0], &_meas.gps[2]);
+    Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].pos.heading, &rf[robot_id].speed.x, &rf[robot_id].speed.y, &_meas.gps[0], &_meas.gps[2]);
     //print_cov_matrix();
     //printf("ACC2: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
     if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading);
@@ -583,8 +583,8 @@ void controller_print_log()
                       // printf("Theta from message is %f\n", theta);
                       //double y = message_direction[2];
                       // double x = message_direction[1];
-                      
-                     
+
+
                       //theta = -atan2(y,x) + rf[robot_id].pos.heading;
                       //if(robot_id==4)printf("Rob %d from rob %d 0: %f, 1: %f, 2: %f \n", robot_id,other_robot_id,message_direction[0],message_direction[1],message_direction[2]);
                       //theta = message_direction[0]*M_PI/2 + rf[robot_id].pos.heading;
@@ -592,12 +592,12 @@ void controller_print_log()
                       double x=-message_direction[2];
                       theta = atan2(y,x) + rf[robot_id].pos.heading;
                       //if(robot_id==4)printf("Rob %d from rob %d Theta: %f\n", robot_id,other_robot_id,theta);
-                      
+
                       //printf("Theta = %f\n", theta);
  		range = sqrt((1/message_rssi));
- 		
+
                       //printf("Robot %d from %d, x = %f, y = %f, dim_3 = %f, my_theta = %f, theta = %f\n", robot_id, other_robot_id, x, y, message_direction[0], 270 - rf[robot_id].pos.heading*180.0/3.141592, theta*180.0/3.141592);
-                      
+
  		// Get position update
  		rf[other_robot_id].rel_prev_pos.x = rf[other_robot_id].rel_pos.x;
  		rf[other_robot_id].rel_prev_pos.y = rf[other_robot_id].rel_pos.y;
@@ -606,11 +606,15 @@ void controller_print_log()
  		rf[other_robot_id].rel_pos.y = range*sin(theta);   // relative y pos
  		//if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
                       
+ 		if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
+
  		//printf("Robot %d from %d, rel_x = %f, rel_y = %f\n", robot_id, other_robot_id, rf[other_robot_id].rel_pos.x, rf[other_robot_id].rel_pos.y);
 
         rf[other_robot_id].rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);
         rf[other_robot_id].rel_speed.y = (1/((float) time_step))*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].rel_prev_pos.y);
 
+        printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, sp x:%g, sp y:%g, queue length: %d\n",robot_name, other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y,theta,rf[other_robot_id].rel_speed.x, rf[other_robot_id].rel_speed.y, wb_receiver_get_queue_length(receiver));
+        printf("    0: %f 1: %f 2: %f %f\n", message_direction[0], message_direction[1], message_direction[2], -atan2(-message_direction[2],message_direction[0]));
         wb_receiver_next_packet(receiver);
  	}
  }

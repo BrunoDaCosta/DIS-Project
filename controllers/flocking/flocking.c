@@ -45,7 +45,7 @@
 #define MAX_SPEED         800     // Maximum speed
 
 #define RULE1_THRESHOLD     0.20           // Threshold to activate aggregation rule. default 0.20
-#define RULE1_WEIGHT        (2.0/10)      // Weight of aggregation rule. default 0.6/10
+#define RULE1_WEIGHT        (0.6/10)      // Weight of aggregation rule. default 0.6/10
 
 #define RULE2_THRESHOLD     0.15          // Threshold to activate dispersion rule. default 0.15
 #define RULE2_WEIGHT        (0.02/10) // Weight of dispersion rule. default 0.02/10
@@ -53,7 +53,7 @@
 #define RULE3_WEIGHT        (1.0/10)      // Weight of consistency rule. default 1.0/10
 
 #define MIGRATORY_URGE    1
-#define MIGRATION_WEIGHT  (0.1/10)*10    // Wheight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_WEIGHT  (0.01/10)*10    // Wheight of attraction towards the common goal. default 0.01/10
 
 #define M_PI 3.14159265358979323846
 #define SIGN(x) ((x>=0)?(1):-(1))
@@ -557,27 +557,34 @@ void controller_print_log()
  	char *inbuffer;	// Buffer for the receiver node
  	int other_robot_id;
     int iter = 0;
-    double x,y;
  	while (wb_receiver_get_queue_length(receiver) > 0) {
         iter+=1;
  		inbuffer = (char*) wb_receiver_get_data(receiver);
  		message_direction = wb_receiver_get_emitter_direction(receiver);
  		message_rssi = wb_receiver_get_signal_strength(receiver);
 
-        //theta = -message_direction[0]*M_PI/2;
-        y=message_direction[0];
-        x=-message_direction[2];
-        theta = -atan2(y,x);
- 		range = sqrt((1/message_rssi));
-
  		other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
 
+                      //theta = message_direction[0]*M_PI/2; //+ rf[robot_id].pos.heading;
+                      // printf("Theta from message is %f\n", theta);
+                      //double y = message_direction[2];
+                      // double x = message_direction[1];
+                      
+                     
+                      //theta = -atan2(y,x) + rf[robot_id].pos.heading;
+                      theta = message_direction[0]*M_PI/2 + rf[robot_id].pos.heading;
+                      //printf("Theta = %f\n", theta);
+ 		range = sqrt((1/message_rssi));
+ 		
+                      //printf("Robot %d from %d, x = %f, y = %f, dim_3 = %f, my_theta = %f, theta = %f\n", robot_id, other_robot_id, x, y, message_direction[0], 270 - rf[robot_id].pos.heading*180.0/3.141592, theta*180.0/3.141592);
+                      
  		// Get position update
  		rf[other_robot_id].rel_prev_pos.x = rf[other_robot_id].rel_pos.x;
  		rf[other_robot_id].rel_prev_pos.y = rf[other_robot_id].rel_pos.y;
 
  		rf[other_robot_id].rel_pos.x = range*cos(theta);  // relative x pos
- 		rf[other_robot_id].rel_pos.y = -range*sin(theta);   // relative y pos
+ 		rf[other_robot_id].rel_pos.y = range*sin(theta);   // relative y pos
+ 		//printf("Robot %d from %d, rel_x = %f, rel_y = %f\n", robot_id, other_robot_id, rf[other_robot_id].rel_pos.x, rf[other_robot_id].rel_pos.y);
 
         rf[other_robot_id].rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);
         rf[other_robot_id].rel_speed.y = (1/((float) time_step))*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].rel_prev_pos.y);

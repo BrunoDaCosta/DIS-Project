@@ -520,7 +520,7 @@ DEF rock Solid {
   }
 }
 DEF SUPERVISOR Robot {
-  controller "formation1_super"
+  controller ""
   supervisor TRUE
 }
 DEF epuck0 Robot {
@@ -1904,7 +1904,7 @@ DEF epuck0 Robot {
       0 0 0
     ]
   }
-  controller "leader"
+  controller "formation_leader"
   cpuConsumption 1.11
 }
 DEF epuck1 Robot {
@@ -3288,7 +3288,7 @@ DEF epuck1 Robot {
       0 0 0
     ]
   }
-  controller "follower"
+  controller ""
   cpuConsumption 1.11
 }
 DEF epuck2 Robot {
@@ -3316,7 +3316,7 @@ DEF epuck2 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.02600000000000002 0.02 0
+        translation -0.026000000000000172 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -4672,7 +4672,7 @@ DEF epuck2 Robot {
       0 0 0
     ]
   }
-  controller "follower"
+  controller "formation_follower"
   cpuConsumption 1.11
 }
 DEF epuck3 Robot {
@@ -4700,7 +4700,7 @@ DEF epuck3 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.02600000000000002 0.02 0
+        translation -0.026000000000000172 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -6056,7 +6056,7 @@ DEF epuck3 Robot {
       0 0 0
     ]
   }
-  controller "follower"
+  controller ""
   cpuConsumption 1.11
 }
 DEF epuck4 Robot {
@@ -6084,7 +6084,7 @@ DEF epuck4 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.02600000000000002 0.02 0
+        translation -0.026000000000000172 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -6240,7 +6240,7 @@ DEF epuck4 Robot {
         }
       ]
       endPoint DEF EPUCK_RIGHT_WHEEL Solid {
-        translation 0.02600000000000002 0.02 0
+        translation 0.026000000000000172 0.02 0
         rotation -1 0 0 0
         children [
           Transform {
@@ -7440,6 +7440,6 @@ DEF epuck4 Robot {
       0 0 0
     ]
   }
-  controller "follower"
+  controller ""
   cpuConsumption 1.11
 }

@@ -96,7 +96,6 @@ WbDeviceTag dev_right_encoder;
 WbDeviceTag dev_left_motor;
 WbDeviceTag dev_right_motor;
 WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
-WbDeviceTag receiver;		// Handle for the receiver node
 WbDeviceTag emitter;		// Handle for the emitter node
 
 static int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1), robot ID
@@ -156,7 +155,6 @@ void init_devices(int ts){
     wb_motor_set_velocity(dev_left_motor, 0.0);
     wb_motor_set_velocity(dev_right_motor, 0.0);
     // Communication
-    receiver = wb_robot_get_device("receiver");
     emitter = wb_robot_get_device("emitter");
     
     
@@ -171,9 +169,8 @@ void init_devices(int ts){
     for(i=0;i<NB_SENSORS;i++) {
         wb_distance_sensor_enable(ds[i],ts);
     }
-    wb_receiver_enable(receiver,ts);
     
-    wb_keyboard_enable(64);
+    wb_keyboard_enable(ts);
 
     sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
     robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
@@ -263,6 +260,7 @@ int main()
 
   //send_ping();
   while (wb_robot_step(time_step) != -1)  {
+           send_ping();
            msl=0; msr=0;
     
 	int key = 0; 				// key that is used to determine how to adapt the speed
@@ -526,11 +524,9 @@ void controller_print_log()
   *  the range and bearing will be measured directly out of message RSSI and direction
  */
  void send_ping() {
- 	float out[255];
- 	out[0] = robot_id;
- 	out[1] = rf[robot_id].pos.heading;
- 	
- 	wb_emitter_send(emitter,(char *)out,4*sizeof(float));
+ 	char out[10];
+ 	strcpy(out,robot_name);  // in the ping message we send the name of the robot.
+ 	wb_emitter_send(emitter,out,strlen(out)+1);
  }
  
 

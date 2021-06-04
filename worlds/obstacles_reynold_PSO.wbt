@@ -9,8 +9,8 @@ WorldInfo {
   coordinateSystem "NUE"
 }
 Viewpoint {
-  orientation -0.9931345111565514 -0.11262694456245013 -0.03160718444222321 1.03351
-  position -1.6585415096424505 5.666309726373233 3.637095016590059
+  orientation -0.696302583523726 -0.6084508444157452 -0.38072336690562014 1.5336043890549478
+  position -3.8344206103880873 2.7097326879274006 0.8099856612624308
 }
 PointLight {
   intensity 0.5
@@ -520,13 +520,29 @@ DEF rock Solid {
   }
 }
 DEF SUPERVISOR Robot {
-  controller ""
+  children [
+    Receiver {
+      name "receiver_sup"
+      channel 2
+    }
+    Emitter {
+      name "emitter_sup"
+    }
+  ]
+  controller "PSO"
   supervisor TRUE
 }
 DEF epuck0 Robot {
   translation -2.9 0 0
   rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
   children [
+    Receiver {
+      name "receiver_sup"
+    }
+    Emitter {
+      name "emitter_sup"
+      channel 2
+    }
     GPS {
     }
     HingeJoint {
@@ -547,7 +563,7 @@ DEF epuck0 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026 0.02 0
+        translation -0.02599999999999997 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -702,7 +718,7 @@ DEF epuck0 Robot {
         }
       ]
       endPoint DEF EPUCK_RIGHT_WHEEL Solid {
-        translation 0.026 0.02 0
+        translation 0.025999999999999985 0.02 0
         rotation -1 0 0 0
         children [
           Transform {
@@ -1902,13 +1918,20 @@ DEF epuck0 Robot {
       0 0 0
     ]
   }
-  controller "flocking"
+  controller "flocking_for_pso"
   cpuConsumption 1.11
 }
 DEF epuck1 Robot {
   translation -2.9 0 0.1
   rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
   children [
+    Emitter {
+      name "emitter_sup"
+      channel 2
+    }
+    Receiver {
+      name "receiver_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -1929,7 +1952,7 @@ DEF epuck1 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026 0.02 0
+        translation -0.025999999999999978 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -2084,7 +2107,7 @@ DEF epuck1 Robot {
         }
       ]
       endPoint DEF EPUCK_RIGHT_WHEEL Solid {
-        translation 0.026 0.02 0
+        translation 0.025999999999999964 0.02 0
         rotation -1 0 0 0
         children [
           Transform {
@@ -3284,13 +3307,20 @@ DEF epuck1 Robot {
       0 0 0
     ]
   }
-  controller "flocking"
+  controller "flocking_for_pso"
   cpuConsumption 1.11
 }
 DEF epuck2 Robot {
   translation -2.9 0 -0.1
   rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
   children [
+    Emitter {
+      name "emitter_sup"
+      channel 2
+    }
+    Receiver {
+      name "receiver_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -3311,7 +3341,7 @@ DEF epuck2 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026 0.02 0
+        translation -0.025999999999999992 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -3466,7 +3496,7 @@ DEF epuck2 Robot {
         }
       ]
       endPoint DEF EPUCK_RIGHT_WHEEL Solid {
-        translation 0.026 0.02 0
+        translation 0.026000000000000013 0.02 0
         rotation -1 0 0 0
         children [
           Transform {
@@ -4666,13 +4696,20 @@ DEF epuck2 Robot {
       0 0 0
     ]
   }
-  controller "flocking"
+  controller "flocking_for_pso"
   cpuConsumption 1.11
 }
 DEF epuck3 Robot {
   translation -2.9 0 0.2
   rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
   children [
+    Emitter {
+      name "emitter_sup"
+      channel 2
+    }
+    Receiver {
+      name "receiver_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -4693,7 +4730,7 @@ DEF epuck3 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026 0.02 0
+        translation -0.026000000000000027 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -6048,13 +6085,20 @@ DEF epuck3 Robot {
       0 0 0
     ]
   }
-  controller "flocking"
+  controller "flocking_for_pso"
   cpuConsumption 1.11
 }
 DEF epuck4 Robot {
   translation -2.9 0 -0.2
   rotation 3.3485297301176603e-06 0.9999999999887875 -3.348518467756148e-06 -1.5707996939107844
   children [
+    Emitter {
+      name "emitter_sup"
+      channel 2
+    }
+    Receiver {
+      name "receiver_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -6075,7 +6119,7 @@ DEF epuck4 Robot {
         }
       ]
       endPoint DEF EPUCK_LEFT_WHEEL Solid {
-        translation -0.026 0.02 0
+        translation -0.025999999999999978 0.02 0
         rotation -1 0 0 0
         children [
           DEF EPUCK_WHEEL Transform {
@@ -6230,7 +6274,7 @@ DEF epuck4 Robot {
         }
       ]
       endPoint DEF EPUCK_RIGHT_WHEEL Solid {
-        translation 0.026 0.02 0
+        translation 0.025999999999999985 0.02 0
         rotation -1 0 0 0
         children [
           Transform {
@@ -7430,6 +7474,6 @@ DEF epuck4 Robot {
       0 0 0
     ]
   }
-  controller "flocking"
+  controller "flocking_for_pso"
   cpuConsumption 1.11
 }

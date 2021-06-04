@@ -41,7 +41,7 @@ void KF_Update_Cov_Matrix(double ts){
     add(A_cov_AT, ts_R, KF_cov, 4,4,4,4);
 }
 
-void Kalman_Filter(double* pos_x, double* pos_y, double* speed_x, double* speed_y, double* GPS_x, double* GPS_y){
+void Kalman_Filter(double* pos_x, double* pos_y, double* heading, double* speed_x, double* speed_y, double* GPS_x, double* GPS_y){
     static double X[MMS][MMS];
     X[0][0]=*pos_x; X[1][0]=*pos_y;
     X[2][0]=*speed_x; X[3][0]=*speed_y;
@@ -95,6 +95,10 @@ void Kalman_Filter(double* pos_x, double* pos_y, double* speed_x, double* speed_
     *speed_x = X_new[2][0];
     *speed_y = X_new[3][0];
 
+    // printf("Heading correction: %g", M_PI/2-*heading);
+    // *heading = M_PI/2-atan2(*speed_y, *speed_x);
+    // printf(" %g\n", M_PI/2-*heading);
+
     if (VERBOSE_KF){
         printf("After\n");
         printf("Cov matrix\n");
@@ -102,6 +106,8 @@ void Kalman_Filter(double* pos_x, double* pos_y, double* speed_x, double* speed_
 
         printf("X matrix\n");
         print_matrix(X_new, 4,1);
+
+        printf("Position from Kalman: %g %g\n", X_new[0][0], X_new[1][0]);
     }
 }
 

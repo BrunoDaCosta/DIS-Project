@@ -8,6 +8,16 @@ typedef struct
   double heading;
 } pose_t;
 
+/*
+ * Keep given int number within interval {-limit, limit}
+ */
+void limit(float *number, float limit) {
+	if (*number > limit)
+		*number = limit;
+	if (*number < -limit)
+		*number = -limit;
+}
+
 double lookuptable_sensor(int value){
   //return 1 if value is strange
   if(value>4095)

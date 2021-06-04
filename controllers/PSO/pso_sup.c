@@ -17,9 +17,9 @@
 
 /* PSO definitions */
 #define NB 1                            // Number of neighbors on each side
-#define LWEIGHT 2.0                     // Weight of attraction to personal best
-#define NBWEIGHT 2.0                    // Weight of attraction to neighborhood best
-#define VMAX 40.0                       // Maximum velocity particle can attain
+#define LWEIGHT 0.1                     // Weight of attraction to personal best
+#define NBWEIGHT 0.1                    // Weight of attraction to neighborhood best
+#define VMAX 2.0                       // Maximum velocity particle can attain
 #define MININIT 0                   // Lower bound on initialization value
 #define MAXINIT 1.0                    // Upper bound on initialization value
 #define ITS 1                         // Number of iterations to run
@@ -42,9 +42,13 @@
 enum {POS_X=0,POS_Y,POS_Z};
 
 static WbNodeRef robs[MAX_ROB];
-WbDeviceTag emitter[MAX_ROB];
+/*WbDeviceTag emitter[MAX_ROB];
 WbDeviceTag phy_emitter;
-WbDeviceTag rec[MAX_ROB];
+WbDeviceTag rec[MAX_ROB];*/
+
+WbDeviceTag emitter;
+WbDeviceTag rec;
+
 const double *loc[MAX_ROB];
 const double *rot[MAX_ROB];
 double new_loc[MAX_ROB][3];
@@ -62,12 +66,14 @@ double rob_orientation(int i);
 /* RESET - Get device handles and starting locations */
 void reset(void) {
     // Device variables
-    char rob[] = "rob0";
-    char em[] = "emitter0";
-    char receive[] = "receiver0";
-    char rob2[] = "rob10";
-    char em2[] = "emitter10";
-    char receive2[] = "receiver10";
+    char rob[] = "epuck0";
+    char em[] = "emitter_sup";
+    char receive[] = "receiver_sup";
+    //char em[] = "emitter0";
+    //char receive[] = "receiver0";
+    //char rob2[] = "rob10";
+    //char em2[] = "emitter10";
+    //char receive2[] = "receiver10";
     int i;  //counter
     //For robot numbers < 10
     for (i=0;i<10 && i<MAX_ROB;i++) {
@@ -77,14 +83,15 @@ void reset(void) {
         new_loc[i][0] = loc[i][0]; new_loc[i][1] = loc[i][1]; new_loc[i][2] = loc[i][2];
         rot[i] = wb_supervisor_field_get_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"));
         new_rot[i][0] = rot[i][0]; new_rot[i][1] = rot[i][1]; new_rot[i][2] = rot[i][2]; new_rot[i][3] = rot[i][3];
-        emitter[i] = wb_robot_get_device(em);
-        if (emitter[i]==0) printf("missing emitter %d\n",i);
-        rec[i] = wb_robot_get_device(receive);
-        rob[3]++;
-        em[7]++;
-        receive[8]++;
+        // emitter[i] = wb_robot_get_device(em);
+        // if (emitter[i]==0) printf("missing emitter %d\n",i);
+        // rec[i] = wb_robot_get_device(receive);
+        rob[5]++;
+        //em[7]++;
+        //receive[8]++;
     }
     //For robot numbers < 20
+    /*
     for (i=10;i<20 && i<MAX_ROB;i++) {
         robs[i] = wb_supervisor_node_get_from_def(rob2);
         loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
@@ -97,12 +104,15 @@ void reset(void) {
         rob2[4]++;
         em2[8]++;
         receive2[9]++;
-    }
+    }*/
+    emitter = wb_robot_get_device(em);
+    if (emitter==0) printf("missing emitter %d\n",i);
+    rec = wb_robot_get_device(receive);
 
     //char phy_emitter_name[] = "physics_emitter";
-    char phy_emitter_name[] = "emitter0";
+    /*char phy_emitter_name[] = "emitter0";
     phy_emitter = wb_robot_get_device(phy_emitter_name);
-    if (phy_emitter==0) printf("physics emitter not found\n");
+    if (phy_emitter==0) printf("physics emitter not found\n");*/
 
 }
 
@@ -115,8 +125,9 @@ int main() {
     wb_robot_init();
     printf("Particle Swarm Optimization Super Controller\n");
     reset();
-    for (i=0;i<MAX_ROB;i++)
-    wb_receiver_enable(rec[i],32);
+    //for (i=0;i<MAX_ROB;i++)
+    int time_step = wb_robot_get_basic_time_step();
+    wb_receiver_enable(rec,time_step);
 
     wb_robot_step(256);
 
@@ -134,8 +145,10 @@ int main() {
         // Set robot weights to optimization results
         fit = 0.0;
         for (i=0;i<ROBOTS;i++) {
-            for (k=0;k<DATASIZE;k++)
+            for (k=0;k<DATASIZE;k++){
               w[i][k] = weights[k];
+              printf("Weights: %d %g\n", k, weights[k]);
+            }
         }
 
         // Run FINALRUN tests and calculate average
@@ -213,24 +226,33 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
     int time_step = wb_robot_get_basic_time_step();
 
     /* Send data to robots */
-    random_pos(0);
-    for (j=0;j<DATASIZE/2;j++) {
+    /*for (i=0; i<MAX_ROB; i++){
+        //random_pos(i);
+// !!!!  RESET POSITION OF ROBOT ????
+        //for (j=0;j<DATASIZE/2;j++) {
+        buffer[0]=1; // Data integrity
+        for (j=1;j<DATASIZE+1;j++) {
+            buffer[j] = weights[0][j+i*DATASIZE/2];
+            // TEST
+            buffer[j] = j*3;
+        }
+        //buffer[DATASIZE/2] = its;
+        wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
+    }*/
+
+    for (j=0;j<DATASIZE;j++) {
         buffer[j] = weights[0][j];
     }
-    buffer[DATASIZE/2] = its;
-    wb_emitter_send(emitter[0],(void *)buffer,(DATASIZE/2+1)*sizeof(double));
-    random_pos(1);
-    for (j=0;j<DATASIZE/2;j++) {
-        buffer[j] = weights[0][j+DATASIZE/2];
-    }
-    buffer[DATASIZE/2] = its;
-    wb_emitter_send(emitter[1],(void *)buffer,(DATASIZE/2+1)*sizeof(double));
+    //printf("Sending data\n");
+    wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
     wb_supervisor_simulation_reset_physics();
 
     rob_dist = 0.0;
     n_steps = 0;
     /* Initial center of mass position */
     wb_robot_step(time_step);    // Wait one step for the robots to reposition
+    center_pos_start[POS_X]=0;
+    center_pos_start[POS_Z]=0;
     for (i=0; i<MAX_ROB; i++){
         loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
         center_pos_start[POS_X]+=loc[i][POS_X];
@@ -240,23 +262,29 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
     center_pos_start[POS_Z]/=MAX_ROB;
 
  /* Get the positions while waiting for response from robots */
-    while (wb_receiver_get_queue_length(rec[0]) == 0){
+    while (wb_receiver_get_queue_length(rec) == 0){
         wb_robot_step(time_step);
-        loc[0] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[0],"translation"));
-        loc[1] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[1],"translation"));
+        for (i=0; i<MAX_ROB; i++){
+            loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
+        }
     }
 
     /* Receive messages from robots */
     for (i=0;i<MAX_ROB;i++) {
-        rbuffer = (double *)wb_receiver_get_data(rec[i]);
-        wb_receiver_next_packet(rec[i]);
+        rbuffer = (double *)wb_receiver_get_data(rec);
+        wb_receiver_next_packet(rec);
     }
 
     // Finalcenter of mass position
-    loc[0] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[0],"translation"));
-    loc[1] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[1],"translation"));
-    center_pos_end[POS_X]=(loc[0][POS_X]+loc[1][POS_X])/2.0;
-    center_pos_end[POS_Z]=(loc[0][POS_Z]+loc[1][POS_Z])/2.0;
+    center_pos_end[POS_X]=0;
+    center_pos_end[POS_Z]=0;
+    for (i=0; i<MAX_ROB; i++){
+        loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
+        center_pos_end[POS_X]+=loc[i][POS_X];
+        center_pos_end[POS_Z]+=loc[i][POS_Z];
+    }
+    center_pos_end[POS_X]/=MAX_ROB;
+    center_pos_end[POS_Z]/=MAX_ROB;
 
     center_dist=sqrt(pow(center_pos_end[POS_X]-center_pos_start[POS_X],2) + pow(center_pos_end[POS_Z]-center_pos_start[POS_Z],2));
     center_dist/=MAX_DIST;

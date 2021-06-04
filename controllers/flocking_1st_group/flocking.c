@@ -108,9 +108,9 @@ double time_end_calibration = 0;
 
 int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
-float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
+float INITIAL_POS[FLOCK_SIZE][3] = {{-0.1, 0, M_PI}, {-0.1, -0.1, M_PI}, {-0.1, 0.1, M_PI}, {-0.1, -0.2, M_PI}, {-0.1, 0.2, M_PI}};
 
-float migr[2] = {2, 0};	                // Migration vector
+float migr[2] = {-2, 0};	                // Migration vector
 
 static FILE *fp;
 
@@ -269,7 +269,7 @@ void reynolds_rules() {
             rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
             }
 	}
-    if(robot_id==5/*pour pas que ça print*/)
+    if(robot_id==0/*pour pas que ça print*/)
     {
     printf(" \n");
     printf("Robot %d\n",robot_id);
@@ -288,7 +288,8 @@ void compute_wheel_speeds(float *msl, float *msr)
 	float Kw = 0.5;  // Rotational control coefficient
 	float range = sqrtf(rf[robot_id].rey_speed.x*rf[robot_id].rey_speed.x +rf[robot_id].rey_speed.y*rf[robot_id].rey_speed.y);	  // Distance to the wanted position
 	float bearing = atan2(rf[robot_id].rey_speed.y, rf[robot_id].rey_speed.x);	  // Orientation of the wanted position
-
+           
+	// Compute forward control
 	float delta = bearing-rf[robot_id].pos.heading;
 	if(delta>M_PI)
                 delta-=2*M_PI;

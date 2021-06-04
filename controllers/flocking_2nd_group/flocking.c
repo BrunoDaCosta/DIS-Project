@@ -289,17 +289,11 @@ void compute_wheel_speeds(float *msl, float *msr)
 	float range = sqrtf(rf[robot_id].rey_speed.x*rf[robot_id].rey_speed.x +rf[robot_id].rey_speed.y*rf[robot_id].rey_speed.y);	  // Distance to the wanted position
 	float bearing = atan2(rf[robot_id].rey_speed.y, rf[robot_id].rey_speed.x);	  // Orientation of the wanted position
 
-	float delta = bearing-rf[robot_id].pos.heading;
-	if(delta>M_PI)
-                delta-=2*M_PI;
-	if(delta<-M_PI)
-                delta+=2*M_PI;
-                
-           // Compute forward control
-	float u = Ku*range*cosf(delta);
+	// Compute forward control
+	float u = Ku*range*cosf(bearing-rf[robot_id].pos.heading);
 
 	// Compute rotational control
-	float w = Kw*(delta);
+	float w = Kw*(bearing-rf[robot_id].pos.heading);
 	// Convert to wheel speeds!
 	*msl = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);

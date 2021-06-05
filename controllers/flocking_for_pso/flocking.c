@@ -44,16 +44,19 @@
 #define MAX_SPEED_WEB     6.27    // Maximum speed webots
 #define MAX_SPEED         800     // Maximum speed
 
-#define INIT_RULE1_THRESHOLD     0.17           // Threshold to activate aggregation rule. default 0.20
+#define INIT_RULE1_THRESHOLD     0.3           // Threshold to activate aggregation rule. default 0.20
 #define INIT_RULE1_WEIGHT        (0.6/10)      // Weight of aggregation rule. default 0.6/10
 
-#define INIT_RULE2_THRESHOLD     0.17          // Threshold to activate dispersion rule. default 0.15
+#define INIT_RULE2_THRESHOLD     0.3          // Threshold to activate dispersion rule. default 0.15
 #define INIT_RULE2_WEIGHT        (0.02/10) // Weight of dispersion rule. default 0.02/10
 
 #define INIT_RULE3_WEIGHT        (1.0/10)      // Weight of consistency rule. default 1.0/10
 
 #define MIGRATORY_URGE    1
-#define INIT_MIGRATION_WEIGHT  (0.01/10)*10    // Wheight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_WEIGHT  (0.01/10)*40    // Wheight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_DIST    (0.01/10)
+
+#define FACTOR             15.0
 
 #define M_PI 3.14159265358979323846
 #define SIGN(x) ((x>=0)?(1):-(1))
@@ -124,7 +127,7 @@ static double rule1_weight = INIT_RULE1_WEIGHT;
 static double rule2_threshold = INIT_RULE2_WEIGHT;
 static double rule2_weight = INIT_RULE2_WEIGHT;
 static double rule3_weight = INIT_RULE3_WEIGHT;
-static double migration_weight = INIT_MIGRATION_WEIGHT;
+//static double migration_weight = INIT_MIGRATION_WEIGHT;
 
 //-----------------------------------------------------------------------------------//
 
@@ -205,19 +208,18 @@ void init_devices(int ts){
 
 void braitenberg(float* msl, float* msr){
     int i;				// Loop counter
-    float factor = 10;
     float bmsl=0, bmsr=0;
 
     /* Braitenberg */
     for (i=0;i<NB_SENSORS;i++) {
         if(lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))!=1){
-            bmsr += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i] * factor;
-            bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * factor;
+            bmsr += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i] * FACTOR;
+            bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * FACTOR;
         }
     }
     //Correction
-    bmsr /=10;
-    bmsl /=10;
+    //bmsr /=10;
+    //bmsl /=10;
 
     // Adapt Braitenberg values (empirical tests)
     *msl += bmsl/400*MAX_SPEED_WEB/1000;
@@ -264,7 +266,7 @@ void reynolds_rules() {
   	         dispersion[0] += value*cos(angle);
   	         dispersion[1] -= value*sin(angle);
   	       }
-               }
+        }
 	}
 	/* Rule 3 - Consistency/Alignment: match the speeds of flockmates */
 
@@ -275,14 +277,19 @@ void reynolds_rules() {
     rf[robot_id].rey_speed.y = cohesion[1]*rule1_weight + dispersion[1]*rule2_weight + consistency[1]*rule3_weight;
 
 	//move the robot according to some migration rule
-	if(MIGRATORY_URGE == 0){
+    if(MIGRATORY_URGE == 0){
 		rf[robot_id].rey_speed.x += 0*0.01*cos(rf[robot_id].pos.heading + M_PI/2);
 		rf[robot_id].rey_speed.y += 0*0.01*sin(rf[robot_id].pos.heading + M_PI/2);
 	} else {
 		/* Implement migratory urge */
-        if(abs(migr[0]-rf[robot_id].pos.x)>migration_weight){
-            rf[robot_id].rey_speed.x += migration_weight*SIGN(migr[0]-rf[robot_id].pos.x);
-            rf[robot_id].rey_speed.y += migration_weight*SIGN(migr[1]-rf[robot_id].pos.y);
+        if(fabs(migr[0]-rf[robot_id].pos.x)>500*MIGRATION_DIST)
+            rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
+        else if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST || fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST){
+            if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST)
+                rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
+            if(fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST)
+                rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
+
         }
 	}
     //printf("Robot %d\n",robot_id);
@@ -651,11 +658,14 @@ void controller_print_log()
        //rule1_threshold = inbuffer[0];
        stop = inbuffer[0];
        rule1_weight = inbuffer[1];
+
       // rule2_threshold = inbuffer[2];
        rule2_weight = inbuffer[2];
        rule3_weight = inbuffer[3];
        //migration_urge = inbuffer[3];
-
+       //if (rule1_weight<0) rule1_weight=0;
+       //if (rule2_weight<0) rule2_weight=0;
+      // if (rule3_weight<0) rule3_weight=0;
 
        wb_receiver_next_packet(receiver_sup);
    }

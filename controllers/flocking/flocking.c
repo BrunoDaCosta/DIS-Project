@@ -54,7 +54,7 @@
 
 #define MIGRATORY_URGE    1
 #define MIGRATION_WEIGHT  (0.01/10)*20    // Wheight of attraction towards the common goal. default 0.01/10
-#define MIGRATION_DIST    (0.01/10)			
+#define MIGRATION_DIST    (0.01/10)
 
 #define FACTOR             15.0
 
@@ -279,7 +279,6 @@ void reynolds_rules() {
              rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
              }
             }
-	
 	}
     if(robot_id==5/*pour pas que ça print*/)
     {
@@ -306,7 +305,7 @@ void compute_wheel_speeds(float *msl, float *msr)
                 delta-=2*M_PI;
 	if(delta<-M_PI)
                 delta+=2*M_PI;
-                
+
            // Compute forward control
 	float u = Ku*range*cosf(delta);
 
@@ -356,7 +355,7 @@ int main()
 
     // Reynold's rules with all previous info (updates the speed[][] table)
     reynolds_rules();
-    
+
     if(robot_id==5) printf(" \n");
     // Compute wheels speed from Reynold's speed
     compute_wheel_speeds(&msl, &msr);
@@ -364,7 +363,7 @@ int main()
     // Add Braitenberg
     braitenberg(&msl, &msr);
     if(robot_id==5) printf("After msl: %f msr: %f\n",msl,msr);
-    
+
     limit(&msl, 6.27);
     limit(&msr, 6.27);
     wb_motor_set_velocity(dev_left_motor, msl);
@@ -617,7 +616,7 @@ void controller_print_log()
  		rf[other_robot_id].rel_pos.x = range*cos(theta);  // relative x pos
  		rf[other_robot_id].rel_pos.y = range*sin(theta);   // relative y pos
  		//if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
-                      
+
  		//if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
 
  		//printf("Robot %d from %d, rel_x = %f, rel_y = %f\n", robot_id, other_robot_id, rf[other_robot_id].rel_pos.x, rf[other_robot_id].rel_pos.y);

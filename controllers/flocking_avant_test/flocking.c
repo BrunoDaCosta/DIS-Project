@@ -56,7 +56,7 @@
 #define MIGRATION_WEIGHT  (0.01/10)*20    // Wheight of attraction towards the common goal. default 0.01/10
 #define MIGRATION_DIST    (0.01/10)
 
-#define FACTOR             1.0
+#define FACTOR             15.0
 
 #define M_PI 3.14159265358979323846
 #define SIGN(x) ((x>=0)?(1):-(1))
@@ -105,13 +105,11 @@ static int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_S
 /*VARIABLES*/
 static measurement_t  _meas;
 static robot_t rf[FLOCK_SIZE];
-static int iter =0;
 
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
-int Interconn[16] = {20,30,30,3,3,-2,-9,-19,-20,-10,-3,3,3,28,28,19}; // Maze
-//int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
+int Interconn[16] = {20,10,3,3,3,-2,-9,-19,-20,-10,-3,3,3,2,9,19}; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
 float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
 
@@ -191,59 +189,25 @@ void init_devices(int ts){
 }
 
 
-
-
-
 void braitenberg(float* msl, float* msr){
     int i;				// Loop counter
-    int bmsl = 0;
-    int bmsr = 0;
+    float bmsl=0, bmsr=0;
 
+    /* Braitenberg */
     for (i=0;i<NB_SENSORS;i++) {
-        //if (robot_id ==2) printf("Values detected capteur %d : %f\n", i,wb_distance_sensor_get_value(ds[i]));
         if(lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))!=1){
             bmsr += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i] * FACTOR;
             bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * FACTOR;
         }
     }
-    
-   
-   //if (robot_id == 2) printf("Robot %d, brait: bmsr = %d, bmsl = %d\n",robot_id, bmsr, bmsl);
-    
-    if (abs(bmsr) > 0 || abs(bmsl) > 0){
-      *msl = *msl*0.1 +  bmsl/400*MAX_SPEED_WEB/1000;
-      *msr = *msr*0.1 +  bmsr/400*MAX_SPEED_WEB/1000;
-    
-    }else{
-      *msl += bmsl/400*MAX_SPEED_WEB/1000;
-      *msr += bmsr/400*MAX_SPEED_WEB/1000;
-    }
-    
-    
-    /* // Adapt Braitenberg values (empirical tests)
-    if (abs(bmsr) > 0 || abs(bmsl) > 0){
-    
-      *msl = bmsl/400*MAX_SPEED_WEB/1000;
-      *msr = bmsr/400*MAX_SPEED_WEB/1000;
-      
-      if (robot_id== 2) printf("Avoiding\n");
-      iter = 10;
-    }else{
-      if (iter != 0){
-        iter--;
-        if (robot_id == 2) printf("Iter avoidance %d",iter);
-      }
-      
-      if (iter == 0){
-         *msl += bmsl/400*MAX_SPEED_WEB/1000;
-         *msr += bmsr/400*MAX_SPEED_WEB/1000;
-      }else{
-         *msl = 1;
-         *msr = 1;
-      }
-   }*/ 
-}
+    //Correction
+    //bmsr /=10;
+    //bmsl /=10;
 
+    // Adapt Braitenberg values (empirical tests)
+    *msl += bmsl/400*MAX_SPEED_WEB/1000;
+    *msr += bmsr/400*MAX_SPEED_WEB/1000;
+}
 
 void reynolds_rules() {
 	int i, k;			// Loop counters
@@ -331,7 +295,7 @@ void reynolds_rules() {
 void compute_wheel_speeds(float *msl, float *msr)
 {
 	// Compute wanted position from Reynold's speed and current location
-	float Ku = 0.7;   // Forward control coefficient
+	float Ku = 0.2;   // Forward control coefficient
 	float Kw = 0.5;  // Rotational control coefficient
 	float range = sqrtf(rf[robot_id].rey_speed.x*rf[robot_id].rey_speed.x +rf[robot_id].rey_speed.y*rf[robot_id].rey_speed.y);	  // Distance to the wanted position
 	float bearing = atan2(rf[robot_id].rey_speed.y, rf[robot_id].rey_speed.x);	  // Orientation of the wanted position
@@ -363,7 +327,6 @@ void compute_wheel_speeds(float *msl, float *msr)
 int main()
 {
   float msl, msr;
-  
 
   if(ODOMETRY_ACC)
   {
@@ -396,10 +359,10 @@ int main()
     if(robot_id==5) printf(" \n");
     // Compute wheels speed from Reynold's speed
     compute_wheel_speeds(&msl, &msr);
-    // if(robot_id==2) printf("Before msl: %f msr: %f\n",msl,msr);
+    if(robot_id==5) printf("Before msl: %f msr: %f\n",msl,msr);
     // Add Braitenberg
     braitenberg(&msl, &msr);
-    //if(robot_id==2) printf("After msl: %f msr: %f\n",msl,msr);
+    if(robot_id==5) printf("After msl: %f msr: %f\n",msl,msr);
 
     limit(&msl, 6.27);
     limit(&msr, 6.27);

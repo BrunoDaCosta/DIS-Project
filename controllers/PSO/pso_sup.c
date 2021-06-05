@@ -22,7 +22,7 @@
 #define VMAX 2.0                       // Maximum velocity particle can attain
 #define MININIT 0                   // Lower bound on initialization value
 #define MAXINIT 1.0                    // Upper bound on initialization value
-#define ITS 1                         // Number of iterations to run
+#define ITS 5000                         // Number of iterations to run
 
 /* Neighborhood types */
 #define STANDARD    -1
@@ -36,10 +36,13 @@
 #define FINALRUNS 10
 #define NEIGHBORHOOD STANDARD
 #define RADIUS 0.8
-#define N_RUNS 1
+#define N_RUNS 10
 
 #define PI 3.1415926535897932384626433832795
 enum {POS_X=0,POS_Y,POS_Z};
+
+#define TARGET_FLOCKING_DIST 0.17
+#define ROBOT_MAX_SPEED 6.27
 
 static WbNodeRef robs[MAX_ROB];
 /*WbDeviceTag emitter[MAX_ROB];
@@ -51,9 +54,8 @@ WbDeviceTag rec;
 
 const double *loc[MAX_ROB];
 const double *rot[MAX_ROB];
-double new_loc[MAX_ROB][3];
-double new_rot[MAX_ROB][4];
-
+double init_loc[MAX_ROB][3];
+double init_rot[MAX_ROB][4];
 
 void calc_fitness(double[][DATASIZE],double[],int,int);
 void random_pos(int);
@@ -62,6 +64,8 @@ void nClosest(int[][SWARMSIZE],int);
 void fixedRadius(int[][SWARMSIZE],double);
 double robdist(int i, int j);
 double rob_orientation(int i);
+
+//float INITIAL_POS[5][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
 
 /* RESET - Get device handles and starting locations */
 void reset(void) {
@@ -80,9 +84,9 @@ void reset(void) {
         robs[i] = wb_supervisor_node_get_from_def(rob);
         printf("robot %s\n", rob);
         loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
-        new_loc[i][0] = loc[i][0]; new_loc[i][1] = loc[i][1]; new_loc[i][2] = loc[i][2];
+        init_loc[i][0] = loc[i][0]; init_loc[i][1] = loc[i][1]; init_loc[i][2] = loc[i][2];
         rot[i] = wb_supervisor_field_get_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"));
-        new_rot[i][0] = rot[i][0]; new_rot[i][1] = rot[i][1]; new_rot[i][2] = rot[i][2]; new_rot[i][3] = rot[i][3];
+        init_rot[i][0] = rot[i][0]; init_rot[i][1] = rot[i][1]; init_rot[i][2] = rot[i][2]; init_rot[i][3] = rot[i][3];
         // emitter[i] = wb_robot_get_device(em);
         // if (emitter[i]==0) printf("missing emitter %d\n",i);
         // rec[i] = wb_robot_get_device(receive);
@@ -174,36 +178,26 @@ int main() {
     return 0;
 }
 
-// Makes sure no robots are overlapping
-char valid_locs(int rob_id) {
-    int i;
-
-    for (i = 0; i < MAX_ROB; i++) {
-        if (rob_id == i) continue;
-        if (pow(new_loc[i][0]-new_loc[rob_id][0],2) +
-                pow(new_loc[i][2]-new_loc[rob_id][2],2) < (2*ROB_RAD+0.02)*(2*ROB_RAD+0.02))
-        return 0;
-    }
-    return 1;
-}
+// // Makes sure no robots are overlapping
+// char valid_locs(int rob_id) {
+//     int i;
+//
+//     for (i = 0; i < MAX_ROB; i++) {
+//         if (rob_id == i) continue;
+//         if (pow(new_loc[i][0]-new_loc[rob_id][0],2) +
+//                 pow(new_loc[i][2]-new_loc[rob_id][2],2) < (2*ROB_RAD+0.02)*(2*ROB_RAD+0.02))
+//         return 0;
+//     }
+//     return 1;
+// }
 
 // Randomly position specified robot
-void random_pos(int rob_id) {
-    //printf("Setting random position for %d\n",rob_id);
-    new_rot[rob_id][0] = 0.0;
-    new_rot[rob_id][1] = 1.0;
-    new_rot[rob_id][2] = 0.0;
-    new_rot[rob_id][3] = 2.0*PI*rnd();
-
-    do {
-        new_loc[rob_id][0] = (ARENA_SIZE-ROB_RAD)*rnd() - (ARENA_SIZE-ROB_RAD)/2.0;
-        new_loc[rob_id][1] = 0.001;
-        new_loc[rob_id][2] = (ARENA_SIZE-ROB_RAD)*rnd() - (ARENA_SIZE-ROB_RAD)/2.0;
-        //printf("%d at %.2f, %.2f\n", rob_id, new_loc[rob_id][0], new_loc[rob_id][2]);
-    } while (!valid_locs(rob_id));
-
-    wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(robs[rob_id],"translation"), new_loc[rob_id]);
-    wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robs[rob_id],"rotation"), new_rot[rob_id]);
+void reposition_robots() {
+    int i;
+    for (i=0; i<MAX_ROB; i++){
+        wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"), init_loc[i]);
+        wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"), init_rot[i]);
+    }
 }
 
 // Distribute fitness functions among robots
@@ -215,15 +209,17 @@ void random_pos(int rob_id) {
 void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its, int numRobs) {
     double buffer[255];
     double *rbuffer;
-    int i,j;
-    double center_dist;
+    int i,j, iterations;
+    //double center_dist;
     char label[255];
 
-    double center_pos_start[3],center_pos_end[3];
-    int n_steps;
-    double rob_dist;
+    double center_pos_start[3], center_pos_end[3];
+    //int n_steps;
+    //double rob_dist;
 
     int time_step = wb_robot_get_basic_time_step();
+
+    double orientation, distance, velocity;
 
     /* Send data to robots */
     /*for (i=0; i<MAX_ROB; i++){
@@ -240,61 +236,85 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
         wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
     }*/
 
-    for (j=0;j<DATASIZE;j++) {
+    buffer[0]=0;
+    for (j=1;j<DATASIZE+1;j++) {
         buffer[j] = weights[0][j];
     }
-    //printf("Sending data\n");
+
     wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
+    reposition_robots();
     wb_supervisor_simulation_reset_physics();
 
-    rob_dist = 0.0;
-    n_steps = 0;
-    /* Initial center of mass position */
-    wb_robot_step(time_step);    // Wait one step for the robots to reposition
     center_pos_start[POS_X]=0;
     center_pos_start[POS_Z]=0;
+    center_pos_end[POS_X]=0;
+    center_pos_end[POS_Z]=0;
     for (i=0; i<MAX_ROB; i++){
         loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
+        rot[i] = wb_supervisor_field_get_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"));
         center_pos_start[POS_X]+=loc[i][POS_X];
         center_pos_start[POS_Z]+=loc[i][POS_Z];
     }
     center_pos_start[POS_X]/=MAX_ROB;
     center_pos_start[POS_Z]/=MAX_ROB;
 
- /* Get the positions while waiting for response from robots */
-    while (wb_receiver_get_queue_length(rec) == 0){
+
+    fit[0]=0;
+    for (iterations=0; iterations<ITS; iterations++){
         wb_robot_step(time_step);
+        // Final center of mass position
+        center_pos_start[POS_X]=center_pos_end[POS_X];
+        center_pos_start[POS_Z]=center_pos_end[POS_Z];
+
+        center_pos_end[POS_X]=0;
+        center_pos_end[POS_Z]=0;
         for (i=0; i<MAX_ROB; i++){
             loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
+            rot[i] = wb_supervisor_field_get_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"));
+            center_pos_end[POS_X]+=loc[i][POS_X];
+            center_pos_end[POS_Z]+=loc[i][POS_Z];
         }
+        center_pos_end[POS_X]/=MAX_ROB;
+        center_pos_end[POS_Z]/=MAX_ROB;
+
+        // ORIENTATION
+        orientation = 0;
+        for(i=0; i<MAX_ROB-1; i++){
+            for(j=i+1; j<MAX_ROB; j++){
+                //printf("rot: %g %g\n");
+                orientation += fabs(rot[i][3]-rot[j][3])/M_PI;
+            }
+        }
+        orientation = 1.0-orientation*2.0/(MAX_ROB*(MAX_ROB-1.0));
+
+        // DISTANCE
+        double dist_to_center = 0;
+        for(i=0; i<MAX_ROB; i++){
+            dist_to_center+=sqrt(pow(loc[i][POS_X]-center_pos_end[POS_X],2)+pow(loc[i][POS_Z]-center_pos_end[POS_Z],2));
+        }
+        dist_to_center = 1.0/(1.0+dist_to_center/MAX_ROB);
+
+        double dist_between_rob = 0;
+        double d=0;
+        for(i=0; i<MAX_ROB-1; i++){
+            for(j=i+1; j<MAX_ROB; j++){
+                d=sqrt(pow(loc[i][POS_X]-loc[j][POS_X],2)+pow(loc[i][POS_Z]-loc[j][POS_Z],2));
+                dist_between_rob += fmin(d/TARGET_FLOCKING_DIST, 1.0/pow(1.0-TARGET_FLOCKING_DIST+d,2));
+            }
+        }
+        distance = dist_to_center*dist_between_rob;
+
+        // VEOLCITY
+        velocity = sqrt(pow(center_pos_end[POS_X]-center_pos_start[POS_X],2)+pow(center_pos_end[POS_Z]-center_pos_start[POS_Z],2));
+        velocity /= ROBOT_MAX_SPEED*time_step;
+
+        fit[0]+=orientation*distance*velocity;
+        //printf(">> Fitness: %g orientation: %g distance: %g velocity: %g\n", fit[0], orientation, distance, velocity);
     }
+    buffer[0]=1;
+    wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
 
-    /* Receive messages from robots */
-    for (i=0;i<MAX_ROB;i++) {
-        rbuffer = (double *)wb_receiver_get_data(rec);
-        wb_receiver_next_packet(rec);
-    }
-
-    // Finalcenter of mass position
-    center_pos_end[POS_X]=0;
-    center_pos_end[POS_Z]=0;
-    for (i=0; i<MAX_ROB; i++){
-        loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
-        center_pos_end[POS_X]+=loc[i][POS_X];
-        center_pos_end[POS_Z]+=loc[i][POS_Z];
-    }
-    center_pos_end[POS_X]/=MAX_ROB;
-    center_pos_end[POS_Z]/=MAX_ROB;
-
-    center_dist=sqrt(pow(center_pos_end[POS_X]-center_pos_start[POS_X],2) + pow(center_pos_end[POS_Z]-center_pos_start[POS_Z],2));
-    center_dist/=MAX_DIST;
-
-    // Final distance between robots
-    rob_dist/=n_steps;
-    rob_dist = 1.0-(rob_dist-2.0*ROB_RAD)/SENSOR_RANGE;
-    if(rob_dist<0.0) rob_dist = 0.0;
-
-    fit[0]=center_dist*rob_dist;
+    fit[0]/=ITS;
 
     sprintf(label,"Last fitness: %.3f\n",fit[0]);
     wb_supervisor_set_label(2,label,0.01,0.95,0.05,0xffffff,0,FONT);

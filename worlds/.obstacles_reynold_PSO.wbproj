@@ -5,7 +5,7 @@ sceneTreePerspectives: 000000ff0000000100000002000000c0000000fa01000000020100000
 maximizedDockId: -1
 centralWidgetVisible: 1
 orthographicViewHeight: 1
-textFiles: 1 "controllers/flocking_for_pso/flocking.c" "controllers/PSO/pso_sup.c"
+textFiles: 0 "controllers/flocking_for_pso/flocking.c" "controllers/PSO/pso_sup.c"
 consoles: Console:All:All
 renderingDevicePerspectives: epuck0:camera;1;1;0;0
 renderingDevicePerspectives: epuck1:camera;1;1;0;0

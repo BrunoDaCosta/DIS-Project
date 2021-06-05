@@ -56,7 +56,7 @@
 #define INIT_MIGRATION_WEIGHT  (0.01/10)*20    // Wheight of attraction towards the common goal. default 0.01/10
 #define MIGRATION_DIST    (0.01/10)
 
-#define FACTOR             15.0
+#define INIT_FACTOR             15.0
 
 #define M_PI 3.14159265358979323846
 #define SIGN(x) ((x>=0)?(1):-(1))
@@ -100,7 +100,6 @@ WbDeviceTag receiver;		// Handle for the receiver node
 WbDeviceTag emitter;		// Handle for the emitter node
 
 WbDeviceTag receiver_sup;		// Handle for the receiver node
-WbDeviceTag emitter_sup;		// Handle for the emitter node
 
 static int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1), robot ID
 
@@ -118,8 +117,6 @@ float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0
 
 float migr[2] = {2, 0};	                // Migration vector
 
-static FILE *fp;
-
 char* robot_name;
 
 static double rule1_threshold = INIT_RULE1_WEIGHT;
@@ -128,7 +125,7 @@ static double rule2_threshold = INIT_RULE2_WEIGHT;
 static double rule2_weight = INIT_RULE2_WEIGHT;
 static double rule3_weight = INIT_RULE3_WEIGHT;
 static double migration_weight = INIT_MIGRATION_WEIGHT;
-
+static double factor = INIT_FACTOR;
 //-----------------------------------------------------------------------------------//
 
 
@@ -144,7 +141,6 @@ static void odometry_update(int time_step);
 static void process_received_ping_messages(int time_step);
 static void send_ping();
 
-static void PSO_send_data();
 static int PSO_process_received_data(int time_step);
 
 void init_devices(int ts);
@@ -185,7 +181,7 @@ void init_devices(int ts){
     }
     wb_receiver_enable(receiver,ts);
 
-    sscanf(robot_name,"epuck%d",&robot_id_u); // read robot id from the robot's name
+    sscanf(robot_name,"epuck%d(1)",&robot_id_u); // read robot id from the robot's name
     robot_id = robot_id_u%FLOCK_SIZE;	  // normalize between 0 and FLOCK_SIZE-1
 
     for(i=0; i<FLOCK_SIZE; i++) {
@@ -199,10 +195,9 @@ void init_devices(int ts){
     //printf("Init: robot %d\n",robot_id_u);
     // Comunication for PSO
     receiver_sup = wb_robot_get_device("receiver_sup");
-    emitter_sup = wb_robot_get_device("emitter_sup");
     wb_receiver_enable(receiver_sup,ts);
 
-    //printf("Init: robot %d\n",robot_id_u);
+    printf("Init: robot %d\n",robot_id_u);
 }
 
 
@@ -213,8 +208,8 @@ void braitenberg(float* msl, float* msr){
     /* Braitenberg */
     for (i=0;i<NB_SENSORS;i++) {
         if(lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))!=1){
-            bmsr += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i] * FACTOR;
-            bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * FACTOR;
+            bmsr += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i] * factor;
+            bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * factor;
         }
     }
     //Correction
@@ -331,14 +326,6 @@ int main()
   float msl, msr;
 
   while (1){
-      if(ODOMETRY_ACC){
-        if (controller_init_log("odoacc.csv")) return 1;
-        //printf("Use of odometry with accelerometers \n");
-      }
-      else{
-        if (controller_init_log("odoenc.csv")) return 1;
-        //printf("Use of odometry with encoders \n");
-      }
 
       wb_robot_init();
       int time_step = wb_robot_get_basic_time_step();
@@ -346,14 +333,12 @@ int main()
 
       send_ping();
 
-      //PSO_send_data(); // Tell the sup that the robot is ready
       wb_robot_step(time_step);
       while (!PSO_process_received_data(time_step))  {
         send_ping();
         process_received_ping_messages(time_step);
 
         odometry_update(time_step);
-        controller_print_log();
 
         // Reynold's rules with all previous info (updates the speed[][] table)
         reynolds_rules();
@@ -373,8 +358,6 @@ int main()
       }
       //printf("Done!\n");
       // Close the log file
-      if(fp != NULL)
-        fclose(fp);
 
        // End of the simulation
 
@@ -634,17 +617,6 @@ void controller_print_log()
 
 // ################################# PSO FUNCTIONS #################################
  /*
-  *  each robot sends a ping message, so the other robots can measure relative range and bearing to the sender.
-  *  the message contains the robot's name
-  *  the range and bearing will be measured directly out of message RSSI and direction
- */
- void PSO_send_data() {
-   char out[10];
-   strcpy(out,robot_name);  // in the ping message we send the name of the robot.
-   wb_emitter_send(emitter_sup,out,strlen(out)+1);
- }
-
- /*
   * processing all the received ping messages, and calculate range and bearing to the other robots
   * the range and bearing are measured directly out of message RSSI and direction
  */
@@ -652,20 +624,15 @@ void controller_print_log()
    double *inbuffer;	// Buffer for the receiver node
    int stop=0;
    while (wb_receiver_get_queue_length(receiver_sup) > 0) {
-       //printf("Received data!\n");
        inbuffer = (double*) wb_receiver_get_data(receiver_sup);
-       //printf("  in buffer: %g %g %g %g %g %g\n", inbuffer[0],inbuffer[1],inbuffer[2],inbuffer[3],inbuffer[4],inbuffer[5]);
-       //rule1_threshold = inbuffer[0];
+
        stop = inbuffer[0];
        rule1_weight = inbuffer[1];
-
-      // rule2_threshold = inbuffer[2];
        rule2_weight = inbuffer[2];
        rule3_weight = inbuffer[3];
        migration_weight = inbuffer[4];
-       //if (rule1_weight<0) rule1_weight=0;
-       //if (rule2_weight<0) rule2_weight=0;
-      // if (rule3_weight<0) rule3_weight=0;
+       factor = inbuffer[5]*150;
+
 
        wb_receiver_next_packet(receiver_sup);
    }

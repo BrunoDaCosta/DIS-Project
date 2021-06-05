@@ -57,7 +57,7 @@ void Kalman_Filter(double* pos_x, double* pos_y, double* speed_x, double* speed_
 
     static double C[MMS][MMS]={{1, 0, 0, 0},
                              {0, 1, 0, 0}};
-    static double Q[MMS][MMS]={{1, 0},{0, 1}};
+    static double Q[MMS][MMS]={{0.001, 0},{0, 0.001}};
 
     static double Z[MMS][MMS];
     Z[0][0] = *GPS_x; //_meas.gps[0];

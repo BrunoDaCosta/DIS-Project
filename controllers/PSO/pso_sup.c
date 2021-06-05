@@ -17,12 +17,12 @@
 
 /* PSO definitions */
 #define NB 1                            // Number of neighbors on each side
-#define LWEIGHT 0.1                     // Weight of attraction to personal best
-#define NBWEIGHT 0.1                    // Weight of attraction to neighborhood best
-#define VMAX 2.0                       // Maximum velocity particle can attain
+#define LWEIGHT 2.0                     // Weight of attraction to personal best
+#define NBWEIGHT 2.0                    // Weight of attraction to neighborhood best
+#define VMAX 0.05                       // Maximum velocity particle can attain
 #define MININIT 0                   // Lower bound on initialization value
-#define MAXINIT 1.0                    // Upper bound on initialization value
-#define ITS 5000                         // Number of iterations to run
+#define MAXINIT 0.2                    // Upper bound on initialization value
+#define ITS 2                         // Number of iterations to run
 
 /* Neighborhood types */
 #define STANDARD    -1
@@ -31,7 +31,7 @@
 #define FIXEDRAD_NB  2
 
 /* Fitness definitions */
-#define FIT_ITS 180                     // Number of fitness steps to run during evolution
+#define FIT_ITS 1000                     // Number of fitness steps to run during evolution
 
 #define FINALRUNS 10
 #define NEIGHBORHOOD STANDARD
@@ -42,7 +42,7 @@
 enum {POS_X=0,POS_Y,POS_Z};
 
 #define TARGET_FLOCKING_DIST 0.17
-#define ROBOT_MAX_SPEED 6.27
+#define ROBOT_MAX_SPEED 0.002
 
 static WbNodeRef robs[MAX_ROB];
 /*WbDeviceTag emitter[MAX_ROB];
@@ -151,7 +151,6 @@ int main() {
         for (i=0;i<ROBOTS;i++) {
             for (k=0;k<DATASIZE;k++){
               w[i][k] = weights[k];
-              printf("Weights: %d %g\n", k, weights[k]);
             }
         }
 
@@ -167,8 +166,9 @@ int main() {
 
         fit /= FINALRUNS;  // average over the 10 runs
 
-        printf("Average Performance: %.3f\n",fit);
+        printf("Average Performance: %.3f, Best weights: %g %g %g\n",fit, weights[0], weights[1], weights[2]);
     }
+
 
     /* Wait forever */
     while (1){
@@ -235,10 +235,11 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
         //buffer[DATASIZE/2] = its;
         wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
     }*/
-
+    int neg_value=0;
     buffer[0]=0;
     for (j=1;j<DATASIZE+1;j++) {
-        buffer[j] = weights[0][j];
+        buffer[j] = weights[0][j-1];
+        if (weights[0][j-1]<0) neg_value=1;
     }
 
     wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
@@ -260,7 +261,7 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
 
 
     fit[0]=0;
-    for (iterations=0; iterations<ITS; iterations++){
+    for (iterations=0; iterations<its && !neg_value; iterations++){
         wb_robot_step(time_step);
         // Final center of mass position
         center_pos_start[POS_X]=center_pos_end[POS_X];
@@ -292,7 +293,6 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
         for(i=0; i<MAX_ROB; i++){
             dist_to_center+=sqrt(pow(loc[i][POS_X]-center_pos_end[POS_X],2)+pow(loc[i][POS_Z]-center_pos_end[POS_Z],2));
         }
-        dist_to_center = 1.0/(1.0+dist_to_center/MAX_ROB);
 
         double dist_between_rob = 0;
         double d=0;
@@ -302,20 +302,23 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
                 dist_between_rob += fmin(d/TARGET_FLOCKING_DIST, 1.0/pow(1.0-TARGET_FLOCKING_DIST+d,2));
             }
         }
-        distance = dist_to_center*dist_between_rob;
+        distance = 1.0/(1.0+dist_to_center/MAX_ROB)*dist_between_rob*2.0/(MAX_ROB*(MAX_ROB-1.0));
 
         // VEOLCITY
         velocity = sqrt(pow(center_pos_end[POS_X]-center_pos_start[POS_X],2)+pow(center_pos_end[POS_Z]-center_pos_start[POS_Z],2));
-        velocity /= ROBOT_MAX_SPEED*time_step;
+        velocity = velocity/(ROBOT_MAX_SPEED);
+        if (velocity>1) // Patch to prevent bad init
+            continue;
 
         fit[0]+=orientation*distance*velocity;
-        //printf(">> Fitness: %g orientation: %g distance: %g velocity: %g\n", fit[0], orientation, distance, velocity);
+        //printf(">> Fitness: %g orientation: %g distance: %g velocity: %g\n", fit[0]/iterations, orientation, distance, velocity);
     }
     buffer[0]=1;
     wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
 
-    fit[0]/=ITS;
+    fit[0]/=its;
 
+    //printf("Weights sent: %g %g %g --> Fitness: %g\n", weights[0][0], weights[0][1], weights[0][2], fit[0]);
     sprintf(label,"Last fitness: %.3f\n",fit[0]);
     wb_supervisor_set_label(2,label,0.01,0.95,0.05,0xffffff,0,FONT);
 }

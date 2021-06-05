@@ -44,16 +44,16 @@
 #define MAX_SPEED_WEB     6.27    // Maximum speed webots
 #define MAX_SPEED         800     // Maximum speed
 
-#define INIT_RULE1_THRESHOLD     0.20           // Threshold to activate aggregation rule. default 0.20
+#define INIT_RULE1_THRESHOLD     0.17           // Threshold to activate aggregation rule. default 0.20
 #define INIT_RULE1_WEIGHT        (0.6/10)      // Weight of aggregation rule. default 0.6/10
 
-#define INIT_RULE2_THRESHOLD     0.15          // Threshold to activate dispersion rule. default 0.15
+#define INIT_RULE2_THRESHOLD     0.17          // Threshold to activate dispersion rule. default 0.15
 #define INIT_RULE2_WEIGHT        (0.02/10) // Weight of dispersion rule. default 0.02/10
 
 #define INIT_RULE3_WEIGHT        (1.0/10)      // Weight of consistency rule. default 1.0/10
 
 #define MIGRATORY_URGE    1
-#define MIGRATION_WEIGHT  (0.01/10)*10    // Wheight of attraction towards the common goal. default 0.01/10
+#define INIT_MIGRATION_WEIGHT  (0.01/10)*10    // Wheight of attraction towards the common goal. default 0.01/10
 
 #define M_PI 3.14159265358979323846
 #define SIGN(x) ((x>=0)?(1):-(1))
@@ -124,8 +124,7 @@ static double rule1_weight = INIT_RULE1_WEIGHT;
 static double rule2_threshold = INIT_RULE2_WEIGHT;
 static double rule2_weight = INIT_RULE2_WEIGHT;
 static double rule3_weight = INIT_RULE3_WEIGHT;
-
-#define RULE3_WEIGHT
+static double migration_weight = INIT_MIGRATION_WEIGHT;
 
 //-----------------------------------------------------------------------------------//
 
@@ -143,7 +142,7 @@ static void process_received_ping_messages(int time_step);
 static void send_ping();
 
 static void PSO_send_data();
-static void PSO_process_received_data(int time_step);
+static int PSO_process_received_data(int time_step);
 
 void init_devices(int ts);
 
@@ -281,9 +280,9 @@ void reynolds_rules() {
 		rf[robot_id].rey_speed.y += 0*0.01*sin(rf[robot_id].pos.heading + M_PI/2);
 	} else {
 		/* Implement migratory urge */
-        if(abs(migr[0]-rf[robot_id].pos.x)>MIGRATION_WEIGHT){
-            rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
-            rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
+        if(abs(migr[0]-rf[robot_id].pos.x)>migration_weight){
+            rf[robot_id].rey_speed.x += migration_weight*SIGN(migr[0]-rf[robot_id].pos.x);
+            rf[robot_id].rey_speed.y += migration_weight*SIGN(migr[1]-rf[robot_id].pos.y);
         }
 	}
     //printf("Robot %d\n",robot_id);
@@ -324,57 +323,57 @@ int main()
 {
   float msl, msr;
 
-  if(ODOMETRY_ACC)
-  {
-    if (controller_init_log("odoacc.csv")) return 1;
-    printf("Use of odometry with accelerometers \n");
-  }
-  else
-  {
-    if (controller_init_log("odoenc.csv")) return 1;
-    printf("Use of odometry with encoders \n");
-  }
+  while (1){
+      if(ODOMETRY_ACC){
+        if (controller_init_log("odoacc.csv")) return 1;
+        //printf("Use of odometry with accelerometers \n");
+      }
+      else{
+        if (controller_init_log("odoenc.csv")) return 1;
+        //printf("Use of odometry with encoders \n");
+      }
 
-  wb_robot_init();
-  int time_step = wb_robot_get_basic_time_step();
-  init_devices(time_step);
+      wb_robot_init();
+      int time_step = wb_robot_get_basic_time_step();
+      init_devices(time_step);
 
+      send_ping();
 
-  send_ping();
-  while (wb_robot_step(time_step) != -1)  {
-     PSO_process_received_data(time_step);
+      //PSO_send_data(); // Tell the sup that the robot is ready
+      wb_robot_step(time_step);
+      while (!PSO_process_received_data(time_step))  {
+        send_ping();
+        process_received_ping_messages(time_step);
 
+        odometry_update(time_step);
+        controller_print_log();
 
-    send_ping();
-    process_received_ping_messages(time_step);
+        // Reynold's rules with all previous info (updates the speed[][] table)
+        reynolds_rules();
 
-    odometry_update(time_step);
-    controller_print_log();
+        // Compute wheels speed from Reynold's speed
+        compute_wheel_speeds(&msl, &msr);
 
-    // Reynold's rules with all previous info (updates the speed[][] table)
-    reynolds_rules();
+        // Add Braitenberg
+        braitenberg(&msl, &msr);
 
-    // Compute wheels speed from Reynold's speed
-    compute_wheel_speeds(&msl, &msr);
+        limit(&msl, 6.27);
+        limit(&msr, 6.27);
+        wb_motor_set_velocity(dev_left_motor, msl);
+        wb_motor_set_velocity(dev_right_motor, msr);
 
-    // Add Braitenberg
-    braitenberg(&msl, &msr);
+        wb_robot_step(time_step);
+      }
+      //printf("Done!\n");
+      // Close the log file
+      if(fp != NULL)
+        fclose(fp);
 
-    limit(&msl, 6.27);
-    limit(&msr, 6.27);
-    wb_motor_set_velocity(dev_left_motor, msl);
-    wb_motor_set_velocity(dev_right_motor, msr);
+       // End of the simulation
 
-    PSO_send_data();
-  }
-
-  // Close the log file
-  if(fp != NULL)
-    fclose(fp);
-
-   // End of the simulation
-  wb_robot_cleanup();
-  return 0;
+    }
+    wb_robot_cleanup();
+    return 0;
 }
 
 void odometry_update(int time_step){
@@ -642,59 +641,23 @@ void controller_print_log()
   * processing all the received ping messages, and calculate range and bearing to the other robots
   * the range and bearing are measured directly out of message RSSI and direction
  */
- void PSO_process_received_data(int time_step) {
-   //const double *message_direction;
-   //double message_rssi; // Received Signal Strength indicator
-   //double theta;
-   //double range;
+ int PSO_process_received_data(int time_step) {
    double *inbuffer;	// Buffer for the receiver node
-   //int other_robot_id;
-   //printf("Robot %d receiving data of length: %d\n", robot_id, wb_receiver_get_queue_length(receiver_sup));
+   int stop=0;
    while (wb_receiver_get_queue_length(receiver_sup) > 0) {
+       //printf("Received data!\n");
        inbuffer = (double*) wb_receiver_get_data(receiver_sup);
        //printf("  in buffer: %g %g %g %g %g %g\n", inbuffer[0],inbuffer[1],inbuffer[2],inbuffer[3],inbuffer[4],inbuffer[5]);
-       rule1_threshold = inbuffer[0];
+       //rule1_threshold = inbuffer[0];
+       stop = inbuffer[0];
        rule1_weight = inbuffer[1];
-       rule2_threshold = inbuffer[2];
-       rule2_weight = inbuffer[3];
-       rule3_weight = inbuffer[4];
+      // rule2_threshold = inbuffer[2];
+       rule2_weight = inbuffer[2];
+       rule3_weight = inbuffer[3];
+       //migration_urge = inbuffer[3];
+
+
        wb_receiver_next_packet(receiver_sup);
-        // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
-
-                      //theta = message_direction[0]*M_PI/2; //+ rf[robot_id].pos.heading;
-                      // printf("Theta from message is %f\n", theta);
-                      //double y = message_direction[2];
-                      // double x = message_direction[1];
-
-
-                      //theta = -atan2(y,x) + rf[robot_id].pos.heading;
-                      //if(robot_id==4)printf("Rob %d from rob %d 0: %f, 1: %f, 2: %f \n", robot_id,other_robot_id,message_direction[0],message_direction[1],message_direction[2]);
-                      //theta = message_direction[0]*M_PI/2 + rf[robot_id].pos.heading;
-        /*double y=message_direction[0];
-        double x=-message_direction[2];
-        theta = atan2(y,x) + rf[robot_id].pos.heading;
-                      //if(robot_id==4)printf("Rob %d from rob %d Theta: %f\n", robot_id,other_robot_id,theta);
-
-                      //printf("Theta = %f\n", theta);
-       range = sqrt((1/message_rssi));
-
-                      //printf("Robot %d from %d, x = %f, y = %f, dim_3 = %f, my_theta = %f, theta = %f\n", robot_id, other_robot_id, x, y, message_direction[0], 270 - rf[robot_id].pos.heading*180.0/3.141592, theta*180.0/3.141592);
-
-       // Get position update
-       rf[other_robot_id].rel_prev_pos.x = rf[other_robot_id].rel_pos.x;
-       rf[other_robot_id].rel_prev_pos.y = rf[other_robot_id].rel_pos.y;
-
-       rf[other_robot_id].rel_pos.x = range*cos(theta);  // relative x pos
-       rf[other_robot_id].rel_pos.y = range*sin(theta);   // relative y pos
-       if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
-
-       //printf("Robot %d from %d, rel_x = %f, rel_y = %f\n", robot_id, other_robot_id, rf[other_robot_id].rel_pos.x, rf[other_robot_id].rel_pos.y);
-
-        rf[other_robot_id].rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);
-        rf[other_robot_id].rel_speed.y = (1/((float) time_step))*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].rel_prev_pos.y);
-
-        printf("Robot %s, from robot %d, x: %g, y: %g, theta %g, sp x:%g, sp y:%g, queue length: %d\n",robot_name, other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y,theta,rf[other_robot_id].rel_speed.x, rf[other_robot_id].rel_speed.y, wb_receiver_get_queue_length(receiver));
-        printf("    0: %f 1: %f 2: %f %f\n", message_direction[0], message_direction[1], message_direction[2], -atan2(-message_direction[2],message_direction[0]));
-        */
    }
+   return stop;
  }

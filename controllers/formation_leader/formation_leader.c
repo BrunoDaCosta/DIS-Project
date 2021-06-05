@@ -260,7 +260,7 @@ int main()
 
   send_ping();
   while (wb_robot_step(time_step) != -1)  {
-           msl=0; msr=0;
+           msl=BIAS_SPEED; msr=BIAS_SPEED; // put 0 if you want to use the keyboard
     
 	int key = 0; 				// key that is used to determine how to adapt the speed
 	int key1 = wb_keyboard_get_key();	// key that is currently detected
@@ -322,10 +322,10 @@ int main()
     // Add Braitenberg
     braitenberg(&msl, &msr);
 
-    msl = msl*MAX_SPEED_WEB/1000;
-    msr = msr*MAX_SPEED_WEB/1000;
-    wb_motor_set_velocity(dev_left_motor, msl);
-    wb_motor_set_velocity(dev_right_motor, msr);
+    msl_w = msl*MAX_SPEED_WEB/1000;
+    msr_w = msr*MAX_SPEED_WEB/1000;
+    wb_motor_set_velocity(dev_left_motor, msl_w);
+    wb_motor_set_velocity(dev_right_motor, msr_w);
   }
 
   // Close the log file

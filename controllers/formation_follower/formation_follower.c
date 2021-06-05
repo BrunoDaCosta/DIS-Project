@@ -138,8 +138,9 @@ static void controller_print_log();
 static bool controller_init_log(const char* filename);
 
 static void odometry_update(int time_step);
- void process_received_ping_messages(int time_step);
- void update_leader_measurement(float new_leader_range, float new_leader_bearing, float new_leader_orientation);
+void process_received_ping_messages(int time_step);
+void process_received_ping_messages_init(int time_step);
+void update_leader_measurement(float new_leader_range, float new_leader_bearing, float new_leader_orientation);
 
 
 void init_devices(int ts);
@@ -237,9 +238,13 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr) {
 	// Compute the range and bearing to the wanted position
 	float x = leader_range * cosf(leader_bearing);
 	float y = leader_range * sinf(leader_bearing);
+	//printf("x = %f, y= %f\n",x,y);
 	float theta = leader_orientation;
 	x += goal_range * cosf(- M_PI + goal_bearing + theta);
 	y += goal_range * sinf(- M_PI + goal_bearing + theta);
+	
+	//printf("After adding: x = %f, y= %f\n",x,y);
+	
 	float range = sqrtf(x*x + y*y); // This is the wanted position (range)
 	float bearing = atan2(y, x);    // This is the wanted position (bearing)
 
@@ -248,17 +253,19 @@ void compute_wheel_speeds(int nsl, int nsr, int *msl, int *msr) {
 	// Compute rotional control
 	float w = Kw * range * sinf(bearing) + Kb * leader_orientation;
 	// Of course, we can do a lot better by accounting for the speed of the leader (rather than just the position)
-
+           //printf("U = %f, w = %f\n",u, w);
 	// Convert to wheel speeds!
 	*msl = (int)((u - WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS));
 	*msr = (int)((u + WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS));
+	//printf("Speed: msl = %d, msr = %d\n",(int)((u - WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS)), (int)((u + WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS)));
 }
 
 
 
 int main()
 {
-  float msl, msr;
+  int msl,msr;
+  float msl_w, msr_w;
   //const double *message_direction;
   //double message_rssi; // Received Signal Strength indicator
 
@@ -278,47 +285,35 @@ int main()
   init_devices(time_step);
   
   //read the initial packets
-  //int initialized = 0;
-  printf("Init\n");
-  /*while(!initialized){
+  int initialized = 0;
+
+  while(!initialized){
 		// Wait until leader sent range and bearing information 
 		while (wb_receiver_get_queue_length(receiver) == 0) {
 			wb_robot_step(64); // Executing the simulation for 64ms
 		}  
-		if (wb_receiver_get_queue_length(receiver) > 0) {
-            		printf("Get init from leader\n");
-                                 rbbuffer = (float*) wb_receiver_get_data(receiver);
-                                 initialized = 1;
-			goal_range = sqrt(rbbuffer[1]*rbbuffer[1] + rbbuffer[2]*rbbuffer[2]);
-			goal_bearing = -atan2(rbbuffer[1],rbbuffer[2]);
-			printf("Goal of robot %d: range = %.2f, bearing = %.2f\n", robot_id, goal_range, goal_bearing);
-			leader_range = goal_range;
-			leader_bearing = goal_bearing;
-			leader_orientation = rbbuffer[1];
-			printf("  Initial relative position: range = %.2f, bearing = %.2f, heading = %.2f\n", leader_range, leader_bearing, leader_orientation);
-		}
-            	wb_receiver_next_packet(receiver);
+		process_received_ping_messages_init(time_step);
+		initialized = 1;
+            	
 		
-	}*/
+	}
 	msl=0; msr=0;  
 
   while (wb_robot_step(time_step) != -1)  {
-    msl=0; msr=0;
     
     //float *inbuffer;	// Buffer for the receiver node
  	//int other_robot_id;
 
  	while (wb_receiver_get_queue_length(receiver) > 0) {
-
                       process_received_ping_messages(time_step);
-                      printf("Robot %s, x: %.4g, y: %.4g, sp x:%.4g, sp y:%.4g \n",robot_name,leader.rel_pos.x,leader.rel_pos.y,leader.rel_speed.x, leader.rel_speed.y);
+                      //process_received_ping_messages(time_step);
+                      //printf("Robot %s, x: %.4g, y: %.4g, sp x:%.4g, sp y:%.4g \n",robot_name,leader.rel_pos.x,leader.rel_pos.y,leader.rel_speed.x, leader.rel_speed.y);
         
  		//inbuffer = (float*) wb_receiver_get_data(receiver);
 
 
  		//other_robot_id = inbuffer[0];  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
                       //printf("Robot_id = %d, angle = %f\n", other_robot_id, inbuffer[1]);
-                
 
         wb_receiver_next_packet(receiver);
     }
@@ -328,17 +323,20 @@ int main()
     odometry_update(time_step);
     controller_print_log();
 
+    
+    compute_wheel_speeds(0, 0, &msl, &msr);
+    
 
-    // Compute wheels speed from Reynold's speed
-    // compute_wheel_speeds(&msl, &msr);
 
     // Add Braitenberg
-    braitenberg(&msl, &msr);
+    //braitenberg(&msl, &msr);
 
-    msl = msl*MAX_SPEED_WEB/1000;
-    msr = msr*MAX_SPEED_WEB/1000;
-    wb_motor_set_velocity(dev_left_motor, msl);
-    wb_motor_set_velocity(dev_right_motor, msr);
+    msl_w = msl*MAX_SPEED_WEB/1000;
+    msr_w = msr*MAX_SPEED_WEB/1000;
+    wb_motor_set_velocity(dev_left_motor, msl_w);
+    wb_motor_set_velocity(dev_right_motor, msr_w);
+    
+    //wb_robot_step(64);               // Executing the simulation for 64ms
   }
 
   // Close the log file
@@ -530,77 +528,114 @@ void controller_print_log()
  }
 /*
  void process_received_ping_messages(int time_step) {
-
  	float *inbuffer;	// Buffer for the receiver node
  	int other_robot_id;
-
  	while (wb_receiver_get_queue_length(receiver) > 0) {
-
  		inbuffer = (float*) wb_receiver_get_data(receiver);
-
-
  		other_robot_id = inbuffer[0];  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
                       printf("Robot_id = %d, angle = %f\n", other_robot_id, inbuffer[1]);
                 
-
         wb_receiver_next_packet(receiver);
        }
  }*/
  
- void process_received_ping_messages(int time_step) {
+ void process_received_ping_messages_init(int time_step) {
  	const double *message_direction;
  	double message_rssi; // Received Signal Strength indicator
- 	double theta;
- 	double range;
  	char *inbuffer;	// Buffer for the receiver node
  	int other_robot_id;
-    int iter = 0;
+           
  	while (wb_receiver_get_queue_length(receiver) > 0) {
-        iter+=1;
  		inbuffer = (char*) wb_receiver_get_data(receiver);
  		message_direction = wb_receiver_get_emitter_direction(receiver);
  		message_rssi = wb_receiver_get_signal_strength(receiver);
 
  		other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
-
-                      //theta = message_direction[0]*M_PI/2; //+ rf[robot_id].pos.heading;
-                      // printf("Theta from message is %f\n", theta);
-                      //double y = message_direction[2];
-                      // double x = message_direction[1];
-
-
-                      //theta = -atan2(y,x) + rf[robot_id].pos.heading;
-                      //if(robot_id==4)printf("Rob %d from rob %d 0: %f, 1: %f, 2: %f \n", robot_id,other_robot_id,message_direction[0],message_direction[1],message_direction[2]);
-                      //theta = message_direction[0]*M_PI/2 + rf[robot_id].pos.heading;
-                      double y=message_direction[0];
+                     	double y=message_direction[0];
                       double x=-message_direction[2];
-                      theta = atan2(y,x) + rf[robot_id].pos.heading;
-                      //if(robot_id==4)printf("Rob %d from rob %d Theta: %f\n", robot_id,other_robot_id,theta);
+                     		           	           
+                      goal_range = sqrt(1/message_rssi);
+                     	goal_bearing = -atan2(y,x);               		
 
-                      //printf("Theta = %f\n", theta);
- 		range = sqrt((1/message_rssi));
+		printf("Goal of robot %d: range = %.2f, bearing = %.2f\n", robot_id, goal_range, goal_bearing);
+		leader_range = goal_range;
+		leader_bearing = goal_bearing;
+		leader_orientation = 0.0;                   
 
-                      //printf("Robot %d from %d, x = %f, y = %f, dim_3 = %f, my_theta = %f, theta = %f\n", robot_id, other_robot_id, x, y, message_direction[0], 270 - rf[robot_id].pos.heading*180.0/3.141592, theta*180.0/3.141592);
-
- 		// Get position update
- 		leader.rel_prev_pos.x = rf[other_robot_id].rel_pos.x;
- 		leader.rel_prev_pos.y = rf[other_robot_id].rel_pos.y;
-
- 		leader.rel_pos.x = range*cos(theta);  // relative x pos
- 		leader.rel_pos.y = range*sin(theta);   // relative y pos
+ 		leader.rel_pos.x = leader_range*cos(leader_bearing);  // relative x pos
+ 		leader.rel_pos.y = leader_range*sin(leader_bearing);   // relative y pos
+ 		
  		//if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
                       
  		//if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
 
  		//printf("Robot %d from %d, rel_x = %f, rel_y = %f\n", robot_id, other_robot_id, rf[other_robot_id].rel_pos.x, rf[other_robot_id].rel_pos.y);
 
-        leader.rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);
-        leader.rel_speed.y = (1/((float) time_step))*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].rel_prev_pos.y);
+        //leader.rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);
+        //leader.rel_speed.y = (1/((float) time_step))*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].rel_prev_pos.y);
 
         //printf("    0: %f 1: %f 2: %f %f\n", message_direction[0], message_direction[1], message_direction[2], -atan2(-message_direction[2],message_direction[0]));
         wb_receiver_next_packet(receiver);
    }
  }
+ 
+ 
+void process_received_ping_messages(int time_step) {
+           float new_leader_range, new_leader_bearing, new_leader_orientation; // received leader range and bearing
+ 	const double *message_direction;
+ 	double message_rssi; // Received Signal Strength indicator
+ 	char *inbuffer;	// Buffer for the receiver node
+ 	int other_robot_id;
+           
+ 	while (wb_receiver_get_queue_length(receiver) > 0) {
+ 		inbuffer = (char*) wb_receiver_get_data(receiver);
+ 		message_direction = wb_receiver_get_emitter_direction(receiver);
+ 		message_rssi = wb_receiver_get_signal_strength(receiver);
 
+ 		other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
+                     	double y=message_direction[0];
+                      double x=-message_direction[2];
+           		
 
+		// printf("Goal of robot %d: range = %.2f, bearing = %.2f\n", robot_id, goal_range, goal_bearing);
+		new_leader_range = sqrt(1/message_rssi);
+		new_leader_bearing = -atan2(y,x); 
 
+                      leader.rel_prev_pos.x = leader.rel_pos.x;
+                      leader.rel_prev_pos.y = leader.rel_pos.y;
+
+		leader.rel_pos.x = leader_range*cos(leader_bearing);  // relative x pos
+ 		leader.rel_pos.y = leader_range*sin(leader_bearing);   // relative y pos
+		
+		double y_ref = leader.rel_prev_pos.y - leader.rel_pos.y;
+		double x_ref = leader.rel_prev_pos.x - leader.rel_pos.x;
+		printf("Robot %d, rel prev pos x=%f, y=%f, pos x=%f, y=%f\n",robot_id,leader.rel_prev_pos.x,leader.rel_prev_pos.y,leader.rel_pos.x,leader.rel_pos.y);
+		
+		
+		printf("Leader orientation = %f\n", leader_orientation);
+		//new_leader_orientation = rf[robot_id].pos.heading;
+		
+		//while (new_leader_orientation > M_PI) new_leader_orientation -= 2.0*M_PI;
+		//while (new_leader_orientation < -M_PI) new_leader_orientation += 2.0*M_PI;
+		
+		update_leader_measurement(new_leader_range, new_leader_bearing, new_leader_orientation);
+		printf("Robot : %d,Leader: r:%f gr:%f, b:%f gb:%f, o:%f, my_heading = %f\n", robot_id, new_leader_range, goal_range, new_leader_bearing, goal_bearing, new_leader_orientation, rf[robot_id].pos.heading);
+			                   
+
+ 		
+ 		
+ 		break;
+ 		
+ 		//if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
+                      
+ 		//if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
+
+ 		//printf("Robot %d from %d, rel_x = %f, rel_y = %f\n", robot_id, other_robot_id, rf[other_robot_id].rel_pos.x, rf[other_robot_id].rel_pos.y);
+
+        //leader.rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);
+        //leader.rel_speed.y = (1/((float) time_step))*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].rel_prev_pos.y);
+
+        //printf("    0: %f 1: %f 2: %f %f\n", message_direction[0], message_direction[1], message_direction[2], -atan2(-message_direction[2],message_direction[0]));
+        wb_receiver_next_packet(receiver);
+   }
+ }

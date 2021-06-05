@@ -258,9 +258,8 @@ int main()
   init_devices(time_step);
 
 
-  //send_ping();
+  send_ping();
   while (wb_robot_step(time_step) != -1)  {
-           send_ping();
            msl=0; msr=0;
     
 	int key = 0; 				// key that is used to determine how to adapt the speed
@@ -313,7 +312,7 @@ int main()
 	
     odometry_update(time_step);
     printf("Sending ping");
-    //send_ping();
+    send_ping();
     controller_print_log();
 
 

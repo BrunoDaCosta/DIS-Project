@@ -37,7 +37,7 @@
 #define SPEED_UNIT_RADS		0.00628	// Conversion factor from speed unit to radian per second
 
 #define NB_SENSORS    8	           // Number of distance sensors
-#define FLOCK_SIZE	5                     // Size of flock
+#define FLOCK_SIZE	10                     // Size of flock
 #define BIAS_SPEED           200
 #define DEL_SPEED            BIAS_SPEED/2
 
@@ -112,7 +112,7 @@ double time_end_calibration = 0;
 
 int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
-float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
+float INITIAL_POS[FLOCK_SIZE][3] = {{-0.1, 0, -M_PI}, {-0.1, -0.1, -M_PI}, {-0.1, 0.1, -M_PI}, {-0.1, -0.2, -M_PI}, {-0.1, 0.2, -M_PI},{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
 float leader_old_pos[SIZE_MEMORY][2];
 
 float migr[2] = {2, 0};	                // Migration vector
@@ -147,7 +147,7 @@ static void odometry_update(int time_step);
 void process_received_ping_messages(int time_step);
 void process_received_ping_messages_init(int time_step);
 void update_leader_measurement(float new_leader_range, float new_leader_bearing, float new_leader_orientation);
-
+bool same_group(int rob1,int rob2);
 
 void init_devices(int ts);
 
@@ -579,6 +579,8 @@ void controller_print_log()
  		message_rssi = wb_receiver_get_signal_strength(receiver);
 
  		other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
+                     	if(same_group(robot_id,other_robot_id))
+                     	{
                      	double y=message_direction[0];
                       double x=-message_direction[2];
                      		           	           
@@ -588,13 +590,17 @@ void controller_print_log()
 		printf("Goal of robot %d: range = %.2f, bearing = %.2f\n", robot_id, goal_range, goal_bearing);
 		leader_range = goal_range;
 		leader_bearing = goal_bearing;
-		leader_orientation = 0.0;                   
+		if(other_robot_id == 0)
+		    leader_orientation = M_PI;  
+		else
+		    leader_orientation = 0;  
+		printf("Lead_ori_init %f \n",leader_orientation);                      
 
  		leader.rel_pos.x = leader_range*cos(leader_bearing);  // relative x pos
  		leader.rel_pos.y = leader_range*sin(leader_bearing);   // relative y pos
  		
  		printf("Rob %d X: %f Y: %f\n", robot_id,leader.rel_pos.x,leader.rel_pos.y);
-                      
+                      }
  		//if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
 
  		//printf("Robot %d from %d, rel_x = %f, rel_y = %f\n", robot_id, other_robot_id, rf[other_robot_id].rel_pos.x, rf[other_robot_id].rel_pos.y);
@@ -616,13 +622,16 @@ void process_received_ping_messages(int time_step) {
  	int other_robot_id;
            
  	while (wb_receiver_get_queue_length(receiver) > 0) {
-       	           if(robot_id==4) printf(" \n");
 		
  		inbuffer = (char*) wb_receiver_get_data(receiver);
  		message_direction = wb_receiver_get_emitter_direction(receiver);
  		message_rssi = wb_receiver_get_signal_strength(receiver);
 
  		other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
+                     	//if(robot_id==6) printf("Other id: %d \n",other_robot_id);
+                     	if(same_group(robot_id,other_robot_id))
+                     	{
+                     	//if(robot_id==6) printf("Other id: %d \n",other_robot_id);
                      	double y=message_direction[0];
                       double x=-message_direction[2];
            		
@@ -668,9 +677,9 @@ void process_received_ping_messages(int time_step) {
 		double y_ref = leader.rel_prev_pos.y - leader.rel_pos.y;
 		double x_ref = leader.rel_prev_pos.x - leader.rel_pos.x;
 	
-          	           //if(robot_id==4) printf("Before Range: %f, Bearing: %f, Orientation: %f\n",new_leader_range, new_leader_bearing,new_leader_orientation);
+          	           //if(robot_id==6) printf("Before Range: %f, Bearing: %f, Orientation: %f\n",new_leader_range, new_leader_bearing,new_leader_orientation);
 		update_leader_measurement(new_leader_range, new_leader_bearing, new_leader_orientation);
-			                   
+		}	                   
 
  		
  		
@@ -679,4 +688,12 @@ void process_received_ping_messages(int time_step) {
         //printf("    0: %f 1: %f 2: %f %f\n", message_direction[0], message_direction[1], message_direction[2], -atan2(-message_direction[2],message_direction[0]));
         wb_receiver_next_packet(receiver);
    }
+ }
+ 
+ bool same_group(int rob1,int rob2)
+ {
+   if((rob1<5 && rob2<5)||(rob1>4 && rob2>4))
+     return true;
+   else
+     return false;
  }

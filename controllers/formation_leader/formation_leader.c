@@ -207,6 +207,7 @@ void braitenberg(float* msl, float* msr){
     // Adapt Braitenberg values (empirical tests)
     *msl += bmsl/400*MAX_SPEED_WEB/1000;
     *msr += bmsr/400*MAX_SPEED_WEB/1000;
+    
 }
 
 /*
@@ -241,6 +242,7 @@ void compute_wheel_speeds(float *msl, float *msr)
 int main()
 {
   float msl, msr;
+  int iter = 0;
 
   if(ODOMETRY_ACC)
   {
@@ -257,8 +259,6 @@ int main()
   int time_step = wb_robot_get_basic_time_step();
   init_devices(time_step);
 
-
-  send_ping();
   while (wb_robot_step(time_step) != -1)  {
            msl=BIAS_SPEED; msr=BIAS_SPEED; // put 0 if you want to use the keyboard
     
@@ -311,8 +311,6 @@ int main()
     
 	
     odometry_update(time_step);
-    printf("Sending ping");
-    send_ping();
     controller_print_log();
 
 
@@ -322,10 +320,18 @@ int main()
     // Add Braitenberg
     braitenberg(&msl, &msr);
 
-    msl_w = msl*MAX_SPEED_WEB/1000;
-    msr_w = msr*MAX_SPEED_WEB/1000;
-    wb_motor_set_velocity(dev_left_motor, msl_w);
-    wb_motor_set_velocity(dev_right_motor, msr_w);
+    msl = msl*MAX_SPEED_WEB/1000;
+    msr = msr*MAX_SPEED_WEB/1000;
+    wb_motor_set_velocity(dev_left_motor, msl);
+    wb_motor_set_velocity(dev_right_motor, msr);
+    
+    if (iter == 0){ 
+      wb_robot_step(4000); 
+    }else{
+      wb_robot_step(64);               // Executing the simulation for 10ms
+    }
+    iter++;
+    send_ping();
   }
 
   // Close the log file

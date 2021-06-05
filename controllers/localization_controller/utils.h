@@ -1,95 +1,64 @@
 #ifndef UTILS_H
-#define UTILS_H 
+#define UTILS_H
 
-#define MMS 4 //Matrix max size
-
-void add(double a[][MMS],double b[][MMS],double res[][MMS],int r1,int c1,int r2,int c2)
+typedef struct
 {
-  if (c1!=c2 || r1!=r2){
-    printf("Error: Matrix size don't match");
-    return;
-  }
-  
-  int i,j;
-  for(i=0; i<r1; ++i)
-    for(j=0; j<c1; ++j)
-      res[i][j]=a[i][j]+b[i][j];
+  double x;
+  double y;
+  double heading;
+} pose_t;
+
+/*
+ * Keep given int number within interval {-limit, limit}
+ */
+void limit(float *number, float limit) {
+	if (*number > limit)
+		*number = limit;
+	if (*number < -limit)
+		*number = -limit;
 }
 
-void transp(double a[][MMS],double res[][MMS], int r1, int c1){
-  int i,j;
-  for(i=0; i<r1; ++i)
-    for(j=0; j<c1; ++j)
-      res[j][i]=a[i][j];
+double lookuptable_sensor(int value){
+  //return 1 if value is strange
+  if(value>4095)
+    return 1;
+
+
+  else if(value>3474)
+    return 0.005-(value-3474)/(4095-3474)*0.005;
+  else if(value>2211)
+    return 0.01-(value-2211)/(3473-2211)*(0.01-0.005);
+  else if(value>676)
+    return 0.02-(value-676)/(2211-676)*(0.02-0.01);
+  else if(value>306)
+    return 0.03-(value-306)/(676-306)*(0.03-0.02);
+  else if(value>250)
+    return 0.04-(value-250)/(306-250)*(0.03-0.04);
+
+    //return 1 to avoid noise
+  else if(value>34)
+    return 1;
+    //return 0.04-(value-34)/(306-34)*(0.04-0.03);
+  else if(value>=0)
+    return 1;
+    //return 1-(value-0)/(34-0)*(1-0.04);
+  else
+    return 1;
 }
 
-void scalar_mult(double scalar, double a[][MMS], double res[][MMS], int r1, int c1){
-  int i,j;
-  for(i=0; i<r1; ++i)
-    for(j=0; j<c1; ++j)
-      res[i][j]=scalar*a[i][j];
-}
-
-void mult(double a[][MMS],double b[][MMS],double res[][MMS],int r1,int c1,int r2,int c2)
-{
-    if (c1!=r2){
-      printf("Error: Matrix size don't match");
-      return;
-    }
-    
-    int i,j,k;
-    /* Initializing elements of matrix mult to 0.*/
-    for(i=0; i<r1; ++i)
-        for(j=0; j<c2; ++j)
-            res[i][j]=0;
-        
-    /* Multiplying matrix a and b and storing in array mult. */
-    for(i=0; i<r1; ++i)
-        for(j=0; j<c2; ++j)
-            for(k=0; k<c1; ++k)
-                res[i][j]+=a[i][k]*b[k][j];         
-}
-
- 
-void inv(double a[][MMS], double res[][MMS]){
-  double det=1./((double) (a[0][0]*a[1][1]-a[0][1]*a[1][0]));
-  res[0][0]=a[1][1]*det;
-  res[1][1]=a[0][0]*det;
-  res[1][0]=-a[1][0]*det;
-  res[0][1]=-a[0][1]*det;
-  
-  int i,j;
-  for (i=0; i<2; i++){
-    for (j=0; j<2; j++){
-      if (fabs(res[i][j])<1E-7){
-        res[i][j]=0;
-      }
-    }
-  }
-  
-}
- 
-void copy_matrix(double a[MMS][MMS], double res[MMS][MMS], int r1, int c1){
-  int i,j;
-  for(i=0; i<r1; ++i)
-    for(j=0; j<c1; ++j)
-      res[i][j]=a[i][j];
-
-}
-
-
-void print_matrix(double a[][MMS], int row, int col)
-{
-    int i, j;
-    printf("[");
-    for(i=0; i<row; ++i){
-        for(j=0; j<col; ++j){
-            printf("%g  ",a[i][j]);
-        }
-        printf(";\n");
-    }
-    printf("]\n"); 
-}
-
+// typedef struct
+// {
+//   float supervisor[3];
+//   int id;
+//   pose_t pos;
+//   pose_t prev_pos;
+//   pose_t speed;
+//   pose_t acc;
+//   pose_t rel_pos;
+//   pose_t prev_rel_pos;
+//   pose_t rel_speed;
+//
+//   int initialized;
+// }robot_t;
 
 #endif

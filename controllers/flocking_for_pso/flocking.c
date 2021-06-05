@@ -53,7 +53,7 @@
 #define INIT_RULE3_WEIGHT        (1.0/10)      // Weight of consistency rule. default 1.0/10
 
 #define MIGRATORY_URGE    1
-#define MIGRATION_WEIGHT  (0.01/10)*40    // Wheight of attraction towards the common goal. default 0.01/10
+#define INIT_MIGRATION_WEIGHT  (0.01/10)*20    // Wheight of attraction towards the common goal. default 0.01/10
 #define MIGRATION_DIST    (0.01/10)
 
 #define FACTOR             15.0
@@ -127,7 +127,7 @@ static double rule1_weight = INIT_RULE1_WEIGHT;
 static double rule2_threshold = INIT_RULE2_WEIGHT;
 static double rule2_weight = INIT_RULE2_WEIGHT;
 static double rule3_weight = INIT_RULE3_WEIGHT;
-//static double migration_weight = INIT_MIGRATION_WEIGHT;
+static double migration_weight = INIT_MIGRATION_WEIGHT;
 
 //-----------------------------------------------------------------------------------//
 
@@ -283,12 +283,12 @@ void reynolds_rules() {
 	} else {
 		/* Implement migratory urge */
         if(fabs(migr[0]-rf[robot_id].pos.x)>500*MIGRATION_DIST)
-            rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
+            rf[robot_id].rey_speed.x += migration_weight*SIGN(migr[0]-rf[robot_id].pos.x);
         else if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST || fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST){
             if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST)
-                rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
+                rf[robot_id].rey_speed.x += migration_weight*SIGN(migr[0]-rf[robot_id].pos.x);
             if(fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST)
-                rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
+                rf[robot_id].rey_speed.y += migration_weight*SIGN(migr[1]-rf[robot_id].pos.y);
 
         }
 	}
@@ -662,7 +662,7 @@ void controller_print_log()
       // rule2_threshold = inbuffer[2];
        rule2_weight = inbuffer[2];
        rule3_weight = inbuffer[3];
-       //migration_urge = inbuffer[3];
+       migration_weight = inbuffer[4];
        //if (rule1_weight<0) rule1_weight=0;
        //if (rule2_weight<0) rule2_weight=0;
       // if (rule3_weight<0) rule3_weight=0;

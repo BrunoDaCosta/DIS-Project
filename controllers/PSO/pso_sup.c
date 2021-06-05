@@ -41,7 +41,7 @@
 #define PI 3.1415926535897932384626433832795
 enum {POS_X=0,POS_Y,POS_Z};
 
-#define TARGET_FLOCKING_DIST 0.17
+#define TARGET_FLOCKING_DIST 0.3
 #define ROBOT_MAX_SPEED 0.002
 
 static WbNodeRef robs[MAX_ROB];
@@ -166,7 +166,7 @@ int main() {
 
         fit /= FINALRUNS;  // average over the 10 runs
 
-        printf("Average Performance: %.3f, Best weights: %g %g %g\n",fit, weights[0], weights[1], weights[2]);
+        printf("Average Performance: %.3f, Best weights: %g %g %g %g\n",fit, weights[0], weights[1], weights[2], weights[3]);
     }
 
 

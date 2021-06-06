@@ -1,4 +1,4 @@
-#VRML_SIM R2019b utf8
+#VRML_SIM R2021a utf8
 WorldInfo {
   info [
     "Description"
@@ -6,6 +6,7 @@ WorldInfo {
     "Date: DD MMM YYYY"
   ]
   basicTimeStep 16
+  coordinateSystem "NUE"
 }
 Viewpoint {
   orientation -0.9997888389386316 -0.018522133753172097 0.008899892975331888 1.265916143384099
@@ -1908,7 +1909,7 @@ DEF epuck0 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "formation_leader"
   cpuConsumption 1.11
 }
 DEF epuck1 Robot {
@@ -3292,7 +3293,7 @@ DEF epuck1 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "formation_follower"
   cpuConsumption 1.11
 }
 DEF epuck2 Robot {
@@ -4676,7 +4677,7 @@ DEF epuck2 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "formation_follower"
   cpuConsumption 1.11
 }
 DEF epuck3 Robot {
@@ -6060,7 +6061,7 @@ DEF epuck3 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "formation_follower"
   cpuConsumption 1.11
 }
 DEF epuck4 Robot {
@@ -7444,6 +7445,6 @@ DEF epuck4 Robot {
       0 0 0
     ]
   }
-  controller "localization_controller"
+  controller "formation_follower"
   cpuConsumption 1.11
 }

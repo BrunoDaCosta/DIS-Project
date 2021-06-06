@@ -301,21 +301,24 @@ void reynolds_rules() {
 		rf[robot_id].rey_speed.y += 0*0.01*sin(rf[robot_id].pos.heading + M_PI/2);
 	} else {
 		/* Implement migratory urge */
-        if(fabs(migr[0]-rf[robot_id].pos.x)>500*MIGRATION_DIST){
-            rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
-            }
-        else if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST || fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST){
+              if(fabs(migr[0]-rf[robot_id].pos.x)>500*MIGRATION_DIST){
+                rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
+                 /* if(fabs(migr[1]-rf[robot_id].pos.y)>500* MIGRATION_DIST){
+                     rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
+                 }*/
+               }
+            else if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST || fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST){
 
-            if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST)
-            {
-              rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
-              }
-              if(fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST)
-              {
-             rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
-             }
-            }
-	}
+                if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST)
+                {
+                  rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
+                  }
+                  if(fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST)
+                  {
+                     rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
+                 }
+                }
+    	}
     if(robot_id==5/*pour pas que ça print*/)
     {
     printf(" \n");

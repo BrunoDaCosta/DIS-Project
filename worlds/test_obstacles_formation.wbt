@@ -521,17 +521,20 @@ DEF rock Solid {
 }
 DEF SUPERVISOR Robot {
   children [
-    DEF emitter Emitter {
+    Receiver {
     }
   ]
   name "super1"
-  controller ""
+  controller "sup_formation_metrics"
   supervisor TRUE
 }
 DEF epuck0 Robot {
   translation -2.9 0 -1.11298e-11
   rotation 0 1 0 -1.5708
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -1916,6 +1919,9 @@ DEF epuck1 Robot {
   translation -2.8999999999999835 -3.198720128164481e-05 0.09999999998887045
   rotation 0 1 0 -1.5708
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -3300,6 +3306,9 @@ DEF epuck2 Robot {
   translation -2.9 0 -0.1
   rotation 0 1 0 -1.5708
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -4684,6 +4693,9 @@ DEF epuck3 Robot {
   translation -2.9 0 0.213892
   rotation 0 1 0 -1.5708
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -6068,6 +6080,9 @@ DEF epuck4 Robot {
   translation -2.9 0 -0.2
   rotation 0 1 0 -1.5708
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {

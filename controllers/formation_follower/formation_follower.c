@@ -92,7 +92,7 @@ static robot_t rf[FLOCK_SIZE];
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
-int Interconn[16] = {20,30,30,5,5,-5,-9,-19,-20,-10,-5,4,4,28,28,19}; // Maze
+int Interconn[16] = {20,30,30,50,30,-5,-9,-19,-20,-10,-5,45,25,28,28,19}; // Maze
 
 float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
 float leader_old_pos[SIZE_MEMORY][2];

@@ -109,6 +109,7 @@ static robot_t rf[FLOCK_SIZE];
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
+//int Interconn[16] = {20,30,30,10,10,-5,-9,-19,-20,-10,-5,9,9,28,28,19}; // Maze
 int Interconn[16] = {20,10,3,3,3,-2,-9,-19,-20,-10,-3,3,3,2,9,19};; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
 float INITIAL_POS[FLOCK_SIZE][3] = {{-0.1, 0, M_PI}, {-0.1, -0.1, M_PI}, {-0.1, 0.1, M_PI}, {-0.1, -0.2, M_PI}, {-0.1, 0.2, M_PI},{-1.9, 0, 0}, {-2.9, -0.1, 0}, {-2.9, 0.1, 0}, {-2.9, -0.2, 0}, {-2.9, 0.2, 0}};
@@ -218,6 +219,7 @@ void braitenberg(float* msl, float* msr){
     // Adapt Braitenberg values (empirical tests)
     *msl += bmsl/400*MAX_SPEED_WEB/1000;
     *msr += bmsr/400*MAX_SPEED_WEB/1000;
+    
 }
 
 void reynolds_rules() {

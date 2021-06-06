@@ -101,7 +101,8 @@ static robot_t rf[FLOCK_SIZE];
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
-int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
+int Interconn[16] = {20,30,30,10,10,-5,-9,-19,-20,-10,-5,9,9,28,28,19}; // Maze
+//int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
 float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
 float leader_old_pos[SIZE_MEMORY][2];
@@ -221,13 +222,14 @@ void braitenberg(float* msl, float* msr){
             bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * factor;
         }
     }
-    //Correction
-    bmsr /=10;
-    bmsl /=10;
-
-    // Adapt Braitenberg values (empirical tests)
-    *msl += bmsl/400*MAX_SPEED_WEB/1000;
-    *msr += bmsr/400*MAX_SPEED_WEB/1000;
+    if (abs(bmsr) > 0 || abs(bmsl) > 0){
+      *msl = *msl*0.1 +  bmsl/400*MAX_SPEED_WEB/1000;
+      *msr = *msr*0.1 +  bmsr/400*MAX_SPEED_WEB/1000;
+    
+    }else{
+      *msl += bmsl/400*MAX_SPEED_WEB/1000;
+      *msr += bmsr/400*MAX_SPEED_WEB/1000;
+    }
 }
 
 void update_leader_measurement(float new_leader_range, float new_leader_bearing, float new_leader_orientation) {
@@ -243,7 +245,7 @@ void compute_wheel_speeds(int nsl, int nsr, float *msl, float *msr) {
 	// Define constants
 	float Ku = 2.0;
 	float Kw = 10.0;
-	float Kb = 1.0;
+	float Kb = 0.0;
 	if(counter_kb<=SIZE_MEMORY)
 	{
 	     Kb=0.0;

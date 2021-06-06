@@ -280,7 +280,7 @@ void compute_wheel_speeds(int nsl, int nsr, float *msl, float *msr) {
 	if(delta<-M_PI)
                 delta+=2*M_PI;
            //if(robot_id==4) printf("Delta angle: %f \n", delta);
-	float w = Kw * range * sinf(bearing) - Kb * delta;
+	float w = Kw * range * sinf(bearing) - Kb * sinf(delta);
 	// Of course, we can do a lot better by accounting for the speed of the leader (rather than just the position)
            //printf("U = %f, w = %f\n",u, w);
 	// Convert to wheel speeds!

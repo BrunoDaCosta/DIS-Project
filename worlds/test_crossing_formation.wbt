@@ -9,8 +9,8 @@ WorldInfo {
   coordinateSystem "NUE"
 }
 Viewpoint {
-  orientation -0.9998684634686608 0.016207307512567284 0.0006155842853415571 1.15569
-  position -1.6129503007390844 4.446288754842524 2.193992683396566
+  orientation -0.9404864610152417 -0.2716844769939212 -0.20413907418122004 1.302229839311403
+  position -2.5599047502232946 4.526524890014852 1.95983559991803
 }
 PointLight {
   intensity 0.5
@@ -224,28 +224,35 @@ DEF long_rock_11 Solid {
 }
 DEF SUPERVISOR Robot {
   children [
+    Receiver {
+    }
     DEF emitter Emitter {
       channel 1
     }
   ]
   name "super0"
-  controller "sup_flocking_metrics"
+  controller "sup_formation_metrics"
   supervisor TRUE
 }
 DEF SUPERVISOR Robot {
   children [
+    DEF receiver Receiver {
+    }
     DEF emitter Emitter {
       channel 2
     }
   ]
   name "super1"
-  controller "sup_flocking_metrics_2"
+  controller "sup_formation_metrics_2"
   supervisor TRUE
 }
 DEF epuck1 Robot {
   translation -0.1 0 -0.1
   rotation 0 1 0 1.57
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -1628,6 +1635,9 @@ DEF epuck5 Robot {
   translation -2.9 0 0
   rotation 0 1 0 -1.5708
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -3010,6 +3020,9 @@ DEF epuck0 Robot {
   translation -0.1 0 0
   rotation 0 1 0 1.57
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -4392,6 +4405,9 @@ DEF epuck2 Robot {
   translation -0.1 0 0.1
   rotation 0 1 0 1.57
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -5774,6 +5790,9 @@ DEF epuck3 Robot {
   translation -0.1 0 -0.2
   rotation 0 1 0 1.57
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -7156,6 +7175,9 @@ DEF epuck4 Robot {
   translation -0.1 0 0.2
   rotation 0 1 0 1.57
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -8538,6 +8560,9 @@ DEF epuck6 Robot {
   translation -2.9 0 0.1
   rotation 0 1 0 -1.57
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -9920,6 +9945,9 @@ DEF epuck7 Robot {
   translation -2.9 0 -0.1
   rotation 0 1 0 -1.57
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -11302,6 +11330,9 @@ DEF epuck8 Robot {
   translation -2.9 0 0.213892
   rotation 0 1 0 -1.57
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {
@@ -12684,6 +12715,9 @@ DEF epuck9 Robot {
   translation -2.9 0 -0.2
   rotation 0 1 0 -1.57
   children [
+    Emitter {
+      name "emitter_sup"
+    }
     GPS {
     }
     HingeJoint {

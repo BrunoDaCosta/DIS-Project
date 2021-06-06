@@ -47,6 +47,10 @@
 #define MAX_SPEED_WEB     6.27    // Maximum speed webots
 #define MAX_SPEED         800     // Maximum speed
 
+#define MIGRATORY_URGE    1
+#define MIGRATION_WEIGHT  (0.01/10)*20    // Wheight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_DIST    (0.01/10)
+
 #define M_PI 3.14159265358979323846
 #define SIGN(x) ((x>=0)?(1):-(1))
 
@@ -218,16 +222,13 @@ void compute_wheel_speeds(float *msl, float *msr)
 	float u = Ku*range*cosf(bearing-rf[robot_id].pos.heading);
 
 	// Compute rotational control
-	float w = Kw*(bearing-rf[robot_id].pos.heading);
+	float w = Kw*range*sinf(bearing-rf[robot_id].pos.heading);
 	// Convert to wheel speeds!
 	*msl = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 
 	limit(msl,MAX_SPEED);
 	limit(msr,MAX_SPEED);
-
-    *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
-    *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;
 }
 
 
@@ -237,29 +238,46 @@ int main()
     float msl, msr;
 
     while (1){
-        int iter = 0;
         wb_robot_init();
         int time_step = wb_robot_get_basic_time_step();
         init_devices(time_step);
         wb_robot_step(time_step);
         while (!PSO_process_received_data(time_step))  {
-            msl=BIAS_SPEED; msr=BIAS_SPEED; // put 0 if you want to use the keyboard
+            msl=0; msr=0; // put 0 if you want to use the keyboard
 
             odometry_update(time_step);
+            rf[robot_id].rey_speed.x = 0;
+            rf[robot_id].rey_speed.y = 0;
+            
+            if(MIGRATORY_URGE == 1) {
+		/* Implement migratory urge */
+              if(fabs(migr[0]-rf[robot_id].pos.x)>500*MIGRATION_DIST){
+                rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
+                 /* if(fabs(migr[1]-rf[robot_id].pos.y)>500* MIGRATION_DIST){
+                     rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
+                 }*/
+               }
+            else if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST || fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST){
 
-            braitenberg(&msl, &msr);
+                if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST)
+                {
+                  rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
+                  }
+                  if(fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST)
+                  {
+                     rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
+                 }
+                }
+    	}
 
+            compute_wheel_speeds(&msl, &msr);
             msl = msl*MAX_SPEED_WEB/1000;
             msr = msr*MAX_SPEED_WEB/1000;
+            braitenberg(&msl, &msr);
             wb_motor_set_velocity(dev_left_motor, msl);
             wb_motor_set_velocity(dev_right_motor, msr);
 
-            if (iter == 0){
-                wb_robot_step(4000);
-            }else{
-                wb_robot_step(64);               // Executing the simulation for 10ms
-            }
-            iter++;
+            
             send_ping();
             wb_robot_step(time_step);
         }

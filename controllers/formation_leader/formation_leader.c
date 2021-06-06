@@ -109,7 +109,7 @@ static robot_t rf[FLOCK_SIZE];
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
-int Interconn[16] = {20,30,30,10,10,-5,-9,-19,-20,-10,-5,9,9,28,28,19}; // Maze
+int Interconn[16] = {20,30,30,0,0,-5,-9,-19,-20,-10,-5,0,0,28,28,19}; // Maze
 //int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
 float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}};
@@ -193,7 +193,7 @@ void init_devices(int ts){
 
 void braitenberg(float* msl, float* msr){
     int i;				// Loop counter
-    float factor = 10;
+    float factor = 1;
     float bmsl=0, bmsr=0;
 
     /* Braitenberg */
@@ -230,7 +230,7 @@ void compute_wheel_speeds(float *msl, float *msr)
 	float u = Ku*range*cosf(bearing-rf[robot_id].pos.heading);
 
 	// Compute rotational control
-	float w = Kw*(bearing-rf[robot_id].pos.heading);
+	float w = Kw*range*sinf(bearing-rf[robot_id].pos.heading);
 	
 	// Convert to wheel speeds!
 	*msl = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);

@@ -212,7 +212,7 @@ void init_devices(int ts){
 
 void braitenberg(float* msl, float* msr){
     int i;				// Loop counter
-    float factor = 10;
+    float factor = 1;
     float bmsl=0, bmsr=0;
 
     /* Braitenberg */
@@ -279,15 +279,15 @@ void compute_wheel_speeds(int nsl, int nsr, float *msl, float *msr) {
 	if(delta<-M_PI)
                 delta+=2*M_PI;
            //if(robot_id==4) printf("Delta angle: %f \n", delta);
-	float w = Kw * range * sinf(bearing) - Kb * delta;
+	float w = Kw * range * sinf(bearing) - Kb * sinf(delta);
 	// Of course, we can do a lot better by accounting for the speed of the leader (rather than just the position)
            //printf("U = %f, w = %f\n",u, w);
 	// Convert to wheel speeds!
 	*msl = ((u - WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS));
 	*msr = ((u + WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS));
 
-	//limit(msl,MAX_SPEED);
-	//limit(msr,MAX_SPEED);
+	limit(msl,MAX_SPEED);
+	limit(msr,MAX_SPEED);
 
            *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
            *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;

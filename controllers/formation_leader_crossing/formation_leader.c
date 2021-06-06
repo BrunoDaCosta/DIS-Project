@@ -37,7 +37,7 @@
 #define SPEED_UNIT_RADS		0.00628	// Conversion factor from speed unit to radian per second
 
 #define NB_SENSORS    8	           // Number of distance sensors
-#define FLOCK_SIZE	5                     // Size of flock
+#define FLOCK_SIZE	10                     // Size of flock
 #define BIAS_SPEED           200
 #define DEL_SPEED            BIAS_SPEED/2
 
@@ -56,7 +56,8 @@
 #define RULE3_WEIGHT        (1.0/10)      // Weight of consistency rule. default 1.0/10
 
 #define MIGRATORY_URGE    1
-#define MIGRATION_WEIGHT  (0.01/10)*10    // Wheight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_WEIGHT  (0.01/10)*20    // Wheight of attraction towards the common goal. default 0.01/10
+#define MIGRATION_DIST    (0.01/10)
 
 #define M_PI 3.14159265358979323846
 #define SIGN(x) ((x>=0)?(1):-(1))
@@ -110,10 +111,11 @@ double time_end_calibration = 0;
 
 int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
-float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
+float INITIAL_POS[FLOCK_SIZE][3] = {{-0.1, 0, -M_PI}, {-0.1, -0.1, -M_PI}, {-0.1, 0.1, -M_PI}, {-0.1, -0.2, -M_PI}, {-0.1, 0.2, -M_PI},{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
 
-float migr[2] = {2, 0};	                // Migration vector
-
+float migr1[2] = {-2.9, 0};
+float migr2[2] = {-0.1, 0};	                // Migration vector
+float migr[2] = {-1.5, 0};
 static FILE *fp;
 
 char* robot_name;
@@ -183,14 +185,18 @@ void init_devices(int ts){
         rf[i].rel_prev_pos.x = INITIAL_POS[i][0];
         rf[i].rel_prev_pos.y = INITIAL_POS[i][1];
     }
-
+    if(robot_id==0)
+    migr[0]=migr1[0];
+    else if(robot_id==5)
+    migr[0]=migr2[0];
+      
     printf("Init: robot %d\n",robot_id_u);
 }
 
 
 void braitenberg(float* msl, float* msr){
     int i;				// Loop counter
-    float factor = 10;
+    float factor = 1;
     float bmsl=0, bmsr=0;
 
     /* Braitenberg */
@@ -225,16 +231,14 @@ void compute_wheel_speeds(float *msl, float *msr)
 	float u = Ku*range*cosf(bearing-rf[robot_id].pos.heading);
 
 	// Compute rotational control
-	float w = Kw*(bearing-rf[robot_id].pos.heading);
+	float w = Kw*range*sinf(bearing-rf[robot_id].pos.heading);
+	
 	// Convert to wheel speeds!
 	*msl = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 
 	limit(msl,MAX_SPEED);
 	limit(msr,MAX_SPEED);
-
-    *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
-    *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;
 }
 
 
@@ -260,54 +264,34 @@ int main()
   init_devices(time_step);
 
   while (wb_robot_step(time_step) != -1)  {
-           msl=BIAS_SPEED; msr=BIAS_SPEED; // put 0 if you want to use the keyboard
-    
-	int key = 0; 				// key that is used to determine how to adapt the speed
-	int key1 = wb_keyboard_get_key();	// key that is currently detected
-	//int key2 = wb_keyboard_get_key();	// key that might be currently detected as well
-	int key2 = key1;
-	int sign = 1;
+            msl=0; msr=0; 
+            rf[robot_id].rey_speed.x = 0;
+            rf[robot_id].rey_speed.y = 0;
+            
+            if(MIGRATORY_URGE == 1) {
+		/* Implement migratory urge */
+              if(fabs(migr[0]-rf[robot_id].pos.x)>500*MIGRATION_DIST){
+                rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
+                 /* if(fabs(migr[1]-rf[robot_id].pos.y)>500* MIGRATION_DIST){
+                     rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
+                 }*/
+               }
+            else if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST || fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST){
 
-	sign = 1; // used to invert left and right when robot goes backwards
+                if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST)
+                {
+                  rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
+                  }
+                  if(fabs(migr[1]-rf[robot_id].pos.y)>MIGRATION_DIST)
+                  {
+                     rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
+                 }
+                }
+    	}
 
-	if(key2)  // if a second key is detected -> use the second one
-	{
-	   key=key2; 
-	   if(key1 == 317) sign = -1; // if going backwards set sign accordingly
-	}
-	else      // if no second key is detected -> use the first one
-	{
-	   key = key1;
-	   if(key1 == 317) sign = -1; // if going backwards set sign accordingly
-	}
 
-	// adapt speed to key pressed
-	if(key){
-		switch (key)
-		{
-		case 314 : {
-			msl += BIAS_SPEED-sign*DEL_SPEED;
-			msr += BIAS_SPEED+sign*DEL_SPEED;
-			break;}
-		case 316 : {
-			msl += BIAS_SPEED+sign*DEL_SPEED;
-			msr += BIAS_SPEED-sign*DEL_SPEED;
-			break;}	
-		case 315 : {
-			msl += BIAS_SPEED;
-			msr += BIAS_SPEED;
-			break;}	
-		case 317 : {
-			msl -= BIAS_SPEED;
-			msr -= BIAS_SPEED;
-			break;}
-		} 
-		//printf("Key: %d\n",key);
-	}
-	  
-	  
-	/*Webots 2018b*/
-	// Set speed
+    // Compute wheels speed from Reynold's speed
+    compute_wheel_speeds(&msl, &msr);
     
 	
     odometry_update(time_step);

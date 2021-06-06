@@ -38,7 +38,7 @@ int main() {
     int time_step = wb_robot_get_basic_time_step();
     while(wb_robot_step(time_step) != -1){
         if (!fitness(&fit, &distance, &velocity)) continue;
-        display_data(fit/((double) iter), distance/((double) iter), velocity/((double) iter));
+        display_data(fit, distance, velocity);
         iter++;
     }
     fit/=iter; distance/=iter; velocity/=iter;
@@ -109,9 +109,9 @@ int fitness(double* fitness, double* distance, double* velocity){
     if (vel>1) // Patch to prevent bad init
         return 0;
 
-    *distance += total_distance;
-    *velocity += vel;
-    *fitness += total_distance*vel;
+    *distance = total_distance;
+    *velocity = vel;
+    *fitness = total_distance*vel;
     return 1;
 }
 

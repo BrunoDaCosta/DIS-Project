@@ -17,7 +17,7 @@
 #define VMAX 0.05                       // Maximum velocity particle can attain
 #define MININIT 0                   // Lower bound on initialization value
 #define MAXINIT 0.2                    // Upper bound on initialization value
-#define ITS 5                         // Number of iterations to run
+#define ITS 3                         // Number of iterations to run
 
 /* Neighborhood types */
 #define STANDARD    -1
@@ -28,10 +28,10 @@
 /* Fitness definitions */
 #define FIT_ITS 2000                     // Number of fitness steps to run during evolution
 
-#define FINALRUNS 10
+#define FINALRUNS 5
 #define NEIGHBORHOOD STANDARD
 #define RADIUS 0.8
-#define N_RUNS 10
+#define N_RUNS 4
 
 enum {POS_X=0,POS_Y,POS_Z};
 

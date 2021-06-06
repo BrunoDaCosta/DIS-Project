@@ -193,8 +193,8 @@ void braitenberg(float* msl, float* msr){
     /* Braitenberg */
     for (i=0;i<NB_SENSORS;i++) {
         if(lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))!=1){
-            bmsr += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i] * FACTOR;
-            bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * FACTOR;
+            bmsr += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i] * factor;
+            bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * factor;
         }
     }
     if (abs(bmsr) > 0 || abs(bmsl) > 0){
@@ -487,7 +487,7 @@ void controller_get_gps(){
        rule2_weight = inbuffer[2];
        rule3_weight = inbuffer[3];
        migration_weight = inbuffer[4];
-       factor = inbuffer[5]*FACTOR*10;
+       factor = inbuffer[5]*INIT_FACTOR*10;
 
 
        wb_receiver_next_packet(receiver_sup);

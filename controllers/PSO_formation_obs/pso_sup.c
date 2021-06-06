@@ -22,7 +22,7 @@
 #define VMAX 0.5                       // Maximum velocity particle can attain
 #define MININIT 0                   // Lower bound on initialization value
 #define MAXINIT 2.0                    // Upper bound on initialization value
-#define ITS 2                        // Number of iterations to run
+#define ITS 3                         // Number of iterations to run
 
 /* Neighborhood types */
 #define STANDARD    -1
@@ -31,7 +31,7 @@
 #define FIXEDRAD_NB  2
 
 /* Fitness definitions */
-#define FIT_ITS 2000                     // Number of fitness steps to run during evolution
+#define FIT_ITS 100                     // Number of fitness steps to run during evolution
 
 #define FINALRUNS 1
 #define NEIGHBORHOOD STANDARD
@@ -45,15 +45,14 @@ enum {POS_X=0,POS_Y,POS_Z};
 #define ROBOT_MAX_SPEED 0.002
 
 static WbNodeRef robs[MAX_ROB];
-static WbNodeRef rob_leader;
 
 WbDeviceTag emitter;
 WbDeviceTag receiver;
 
-const double *loc[MAX_ROB+1];
-const double *rot[MAX_ROB+1];
-double init_loc[MAX_ROB+1][3];
-double init_rot[MAX_ROB+1][4];
+const double *loc[MAX_ROB];
+const double *rot[MAX_ROB];
+double init_loc[MAX_ROB][3];
+double init_rot[MAX_ROB][4];
 
 void calc_fitness(double[][DATASIZE],double[],int,int);
 void random_pos(int);
@@ -79,13 +78,6 @@ void reset() {
         init_rot[i][0] = rot[i][0]; init_rot[i][1] = rot[i][1]; init_rot[i][2] = rot[i][2]; init_rot[i][3] = rot[i][3];
         rob[5]++;
     }
-    rob_leader = wb_supervisor_node_get_from_def("epuck0");
-    //printf("robot %s\n", rob);
-    loc[MAX_ROB] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(rob_leader,"translation"));
-    init_loc[MAX_ROB][0] = loc[MAX_ROB][0]; init_loc[MAX_ROB][1] = loc[MAX_ROB][1]; init_loc[MAX_ROB][2] = loc[MAX_ROB][2];
-    rot[MAX_ROB] = wb_supervisor_field_get_sf_rotation(wb_supervisor_node_get_field(rob_leader,"rotation"));
-    init_rot[MAX_ROB][0] = rot[MAX_ROB][0]; init_rot[MAX_ROB][1] = rot[MAX_ROB][1]; init_rot[MAX_ROB][2] = rot[MAX_ROB][2]; init_rot[MAX_ROB][3] = rot[MAX_ROB][3];
-
     emitter = wb_robot_get_device(em);
     receiver = wb_robot_get_device(re);
     wb_receiver_enable(receiver,wb_robot_get_basic_time_step());
@@ -151,8 +143,6 @@ void reposition_robots() {
         wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"), init_loc[i]);
         wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"), init_rot[i]);
     }
-    wb_supervisor_field_set_sf_vec3f(wb_supervisor_node_get_field(rob_leader,"translation"), init_loc[MAX_ROB]);
-    wb_supervisor_field_set_sf_rotation(wb_supervisor_node_get_field(rob_leader,"rotation"), init_rot[MAX_ROB]);
 }
 
 // Calculate fitness
@@ -167,7 +157,7 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
 
     int time_step = wb_robot_get_basic_time_step();
 
-    double velocity;
+    double orientation, distance, velocity;
 
     int neg_value=0;
     buffer[0]=0;
@@ -179,7 +169,6 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
     wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
     reposition_robots();
     wb_supervisor_simulation_reset_physics();
-
 
 
     center_pos_start[POS_X]=0;
@@ -198,7 +187,6 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
     fit[0]=0;
     int good_its=its;
     for (iterations=0; iterations<its && !neg_value; iterations++){
-        //printf("%d\n", iterations);
         wb_robot_step(time_step);
 
         center_pos_start[POS_X]=center_pos_end[POS_X];
@@ -220,8 +208,7 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
 
         while (wb_receiver_get_queue_length(receiver) > 0) {
             inbuffer = (double*) wb_receiver_get_data(receiver);
-            dist[((int) inbuffer[0])-1]=inbuffer[1];
-            //printf("%d %g\n", ((int) inbuffer[0])-1, inbuffer[1]);
+            dist[(int) inbuffer[0]]=inbuffer[1];
             wb_receiver_next_packet(receiver);
         }
 
@@ -229,16 +216,15 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
         double distance = 0;
         for(i=0; i<MAX_ROB; i++){
             if (dist[i]==-1){
-                //printf("Error in communication\n");
+                printf("Error in communication\n");
                 flag = 1;
-                iterations--;
+                good_its--;
                 distance = 0;
                 break;
             }else{
                 distance+=dist[i];
             }
         }
-        if (flag) continue;
         distance=1.0/(1.0+distance/((float) MAX_ROB));
 
         // VELOCITY
@@ -251,9 +237,8 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
         //printf(">> Fitness: %g orientation: %g distance: %g velocity: %g\n", fit[0]/iterations, orientation, distance, velocity);
     }
     buffer[0]=1;
-    //("Reset-----------------------------------------------------\n");
     wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
-    wb_robot_step(time_step);
+
     fit[0]/=good_its;
 
     //printf("Weights sent: %g %g %g --> Fitness: %g\n", weights[0][0], weights[0][1], weights[0][2], fit[0]);

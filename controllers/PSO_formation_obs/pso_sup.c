@@ -8,12 +8,6 @@
 
 #define ROBOTS 1
 #define MAX_ROB 4
-#define ROB_RAD 0.035
-#define ARENA_SIZE .15
-#define MAX_DIST 3.0
-#define SENSOR_RANGE 0.3
-
-#define NB_SENSOR 8                     // Number of proximity sensors
 
 /* PSO definitions */
 #define NB 1                            // Number of neighbors on each side
@@ -38,7 +32,6 @@
 #define RADIUS 0.8
 #define N_RUNS 10
 
-#define PI 3.1415926535897932384626433832795
 enum {POS_X=0,POS_Y,POS_Z};
 
 #define TARGET_FLOCKING_DIST 0.3
@@ -56,20 +49,19 @@ double init_loc[MAX_ROB+1][3];
 double init_rot[MAX_ROB+1][4];
 
 void calc_fitness(double[][DATASIZE],double[],int,int);
-void random_pos(int);
+
 void nRandom(int[][SWARMSIZE],int);
 void nClosest(int[][SWARMSIZE],int);
 void fixedRadius(int[][SWARMSIZE],double);
 double robdist(int i, int j);
-double rob_orientation(int i);
+void reposition_robots();
 
 /* RESET - Get device handles and starting locations */
 void reset() {
     // Device variables
     char rob[] = "epuck1"; // Would be epuck0 if not for the leader
-    char em[] = "emitter";
-    char re[] = "receiver";
     int i;  //counter
+    //Follower part
     for (i=0;i<MAX_ROB;i++) {
         robs[i] = wb_supervisor_node_get_from_def(rob);
         //printf("robot %s\n", rob);
@@ -79,15 +71,15 @@ void reset() {
         init_rot[i][0] = rot[i][0]; init_rot[i][1] = rot[i][1]; init_rot[i][2] = rot[i][2]; init_rot[i][3] = rot[i][3];
         rob[5]++;
     }
+    //Leader part
     rob_leader = wb_supervisor_node_get_from_def("epuck0");
-    //printf("robot %s\n", rob);
     loc[MAX_ROB] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(rob_leader,"translation"));
     init_loc[MAX_ROB][0] = loc[MAX_ROB][0]; init_loc[MAX_ROB][1] = loc[MAX_ROB][1]; init_loc[MAX_ROB][2] = loc[MAX_ROB][2];
     rot[MAX_ROB] = wb_supervisor_field_get_sf_rotation(wb_supervisor_node_get_field(rob_leader,"rotation"));
     init_rot[MAX_ROB][0] = rot[MAX_ROB][0]; init_rot[MAX_ROB][1] = rot[MAX_ROB][1]; init_rot[MAX_ROB][2] = rot[MAX_ROB][2]; init_rot[MAX_ROB][3] = rot[MAX_ROB][3];
 
-    emitter = wb_robot_get_device(em);
-    receiver = wb_robot_get_device(re);
+    emitter = wb_robot_get_device("emitter");
+    receiver = wb_robot_get_device("receiver");
     wb_receiver_enable(receiver,wb_robot_get_basic_time_step());
 }
 
@@ -95,23 +87,17 @@ void reset() {
 int main() {
     double *weights;                         // Optimized result
     int i,j,k;				     // Counter variables
-
     /* Initialisation */
     wb_robot_init();
     printf("Particle Swarm Optimization Super Controller\n");
-
     reset();
-
     wb_robot_step(256);
 
     double fit, w[ROBOTS][DATASIZE], f[ROBOTS];
-
     // Do N_RUNS runs and send the best controller found to the robot
     for (j=0;j<N_RUNS;j++) {
-
         // Get result of optimization
         weights = pso(SWARMSIZE,NB,LWEIGHT,NBWEIGHT,VMAX,MININIT,MAXINIT,ITS,DATASIZE,ROBOTS);
-
         // Set robot weights to optimization results
         fit = 0.0;
         for (i=0;i<ROBOTS;i++) {
@@ -125,26 +111,21 @@ int main() {
         for (i=0;i<FINALRUNS;i+=ROBOTS) {
             calc_fitness(w,f,FIT_ITS,ROBOTS);
             for (k=0;k<ROBOTS && i+k<FINALRUNS;k++) {
-                //fitvals[i+k] = f[k];
                 fit += f[k];
             }
         }
-
         fit /= FINALRUNS;  // average over the 10 runs
-
         printf("Average Performance: %.3f, Best weights: %g %g %g\n",fit, weights[0]*2.0, weights[1]*10.0, weights[2]*1.0);
     }
-
 
     /* Wait forever */
     while (1){
         calc_fitness(w,f,FIT_ITS,ROBOTS);
     }
-
     return 0;
 }
 
-// Randomly position specified robot
+// Reposition  robot to starting pos
 void reposition_robots() {
     int i;
     for (i=0; i<MAX_ROB; i++){
@@ -162,58 +143,43 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
     int i,j, iterations;
     char label[255];
     double dist[MAX_ROB];
-
     double center_pos_start[3], center_pos_end[3];
-
     int time_step = wb_robot_get_basic_time_step();
-
     double velocity;
-
     int neg_value=0;
+
     buffer[0]=0;
     for (j=1;j<DATASIZE+1;j++) {
         buffer[j] = weights[0][j-1];
         if (weights[0][j-1]<0) neg_value=1;
     }
-
     wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
+
     reposition_robots();
     wb_supervisor_simulation_reset_physics();
 
-
-
-    center_pos_start[POS_X]=0;
-    center_pos_start[POS_Z]=0;
-    center_pos_end[POS_X]=0;
-    center_pos_end[POS_Z]=0;
+    center_pos_start[POS_X]=0; center_pos_start[POS_Z]=0;
+    center_pos_end[POS_X]=0; center_pos_end[POS_Z]=0;
     for (i=0; i<MAX_ROB; i++){
         loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
         rot[i] = wb_supervisor_field_get_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"));
-        center_pos_start[POS_X]+=loc[i][POS_X];
-        center_pos_start[POS_Z]+=loc[i][POS_Z];
+        center_pos_start[POS_X]+=loc[i][POS_X]; center_pos_start[POS_Z]+=loc[i][POS_Z];
     }
-    center_pos_start[POS_X]/=MAX_ROB;
-    center_pos_start[POS_Z]/=MAX_ROB;
+    center_pos_start[POS_X]/=MAX_ROB; center_pos_start[POS_Z]/=MAX_ROB;
 
     fit[0]=0;
     int good_its=its;
     for (iterations=0; iterations<its && !neg_value; iterations++){
-        //printf("%d\n", iterations);
         wb_robot_step(time_step);
 
-        center_pos_start[POS_X]=center_pos_end[POS_X];
-        center_pos_start[POS_Z]=center_pos_end[POS_Z];
-
-        center_pos_end[POS_X]=0;
-        center_pos_end[POS_Z]=0;
+        center_pos_start[POS_X]=center_pos_end[POS_X]; center_pos_start[POS_Z]=center_pos_end[POS_Z];
+        center_pos_end[POS_X]=0; center_pos_end[POS_Z]=0;
         for (i=0; i<MAX_ROB; i++){
             loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
             rot[i] = wb_supervisor_field_get_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"));
-            center_pos_end[POS_X]+=loc[i][POS_X];
-            center_pos_end[POS_Z]+=loc[i][POS_Z];
+            center_pos_end[POS_X]+=loc[i][POS_X]; center_pos_end[POS_Z]+=loc[i][POS_Z];
         }
-        center_pos_end[POS_X]/=MAX_ROB;
-        center_pos_end[POS_Z]/=MAX_ROB;
+        center_pos_end[POS_X]/=MAX_ROB; center_pos_end[POS_Z]/=MAX_ROB;
 
         for(i=0; i<MAX_ROB; i++)
             dist[i]=-1;
@@ -221,15 +187,14 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
         while (wb_receiver_get_queue_length(receiver) > 0) {
             inbuffer = (double*) wb_receiver_get_data(receiver);
             dist[((int) inbuffer[0])-1]=inbuffer[1];
-            //printf("%d %g\n", ((int) inbuffer[0])-1, inbuffer[1]);
             wb_receiver_next_packet(receiver);
         }
 
+        // DISTANCE (and check of values)
         int flag = 0;
         double distance = 0;
         for(i=0; i<MAX_ROB; i++){
             if (dist[i]==-1){
-                //printf("Error in communication\n");
                 flag = 1;
                 iterations--;
                 distance = 0;
@@ -251,12 +216,10 @@ void calc_fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int its,
         //printf(">> Fitness: %g orientation: %g distance: %g velocity: %g\n", fit[0]/iterations, orientation, distance, velocity);
     }
     buffer[0]=1;
-    //("Reset-----------------------------------------------------\n");
     wb_emitter_send(emitter,(void *)buffer,(DATASIZE+1)*sizeof(double));
     wb_robot_step(time_step);
     fit[0]/=good_its;
 
-    //printf("Weights sent: %g %g %g --> Fitness: %g\n", weights[0][0], weights[0][1], weights[0][2], fit[0]);
     sprintf(label,"Last fitness: %.3f\n",fit[0]);
     wb_supervisor_set_label(2,label,0.01,0.95,0.05,0xffffff,0,FONT);
 }
@@ -282,4 +245,76 @@ void fitness(double weights[ROBOTS][DATASIZE], double fit[ROBOTS], int neighbors
 #if NEIGHBORHOOD == FIXEDRAD_NB
     fixedRadius(neighbors,RADIUS);
 #endif
+}
+
+/* Choose n random neighbors */
+void nRandom(int neighbors[SWARMSIZE][SWARMSIZE], int numNB) {
+    int i,j;
+    /* Get neighbors for each robot */
+    for (i = 0; i < ROBOTS; i++) {
+        /* Clear old neighbors */
+        for (j = 0; j < ROBOTS; j++)
+        	neighbors[i][j] = 0;
+        /* Set new neighbors randomly */
+        for (j = 0; j < numNB; j++)
+        	neighbors[i][(int)(SWARMSIZE*rnd())] = 1;
+    }
+}
+
+/* Get distance between robots */
+double robdist(int i, int j) {
+    return sqrt(pow(loc[i][0]-loc[j][0],2) + pow(loc[i][2]-loc[j][2],2));
+}
+
+/* Choose the n closest robots */
+void nClosest(int neighbors[SWARMSIZE][SWARMSIZE], int numNB) {
+    int r[numNB];
+    int tempRob;
+    double dist[numNB];
+    double tempDist;
+    int i,j,k;
+    /* Get neighbors for each robot */
+    for (i = 0; i < ROBOTS; i++) {
+        /* Clear neighbors */
+        for (j = 0; j < numNB; j++)
+        dist[j] = ARENA_SIZE;
+        /* Find closest robots */
+        for (j = 0; j < ROBOTS; j++) {
+            /* Don't use self */
+            if (i == j) continue;
+            /* Check if smaller distance */
+            if (dist[numNB-1] > robdist(i,j)) {
+                dist[numNB-1] = robdist(i,j);
+                r[numNB-1] = j;
+                /* Move new distance to proper place */
+                for (k = numNB-1; k > 0 && dist[k-1] > dist[k]; k--) {
+                    tempDist = dist[k];
+                    dist[k] = dist[k-1];
+                    dist[k-1] = tempDist;
+                    tempRob = r[k];
+                    r[k] = r[k-1];
+                    r[k-1] = tempRob;
+                }
+            }
+        }
+        /* Update neighbor table */
+        for (j = 0; j < ROBOTS; j++)
+        neighbors[i][j] = 0;
+        for (j = 0; j < numNB; j++)
+        neighbors[i][r[j]] = 1;
+    }
+}
+
+/* Choose all robots within some range */
+void fixedRadius(int neighbors[SWARMSIZE][SWARMSIZE], double radius) {
+    int i,j;
+    /* Get neighbors for each robot */
+    for (i = 0; i < ROBOTS; i++) {
+        /* Find robots within range */
+        for (j = 0; j < ROBOTS; j++) {
+            if (i == j) continue;
+            if (robdist(i,j) < radius) neighbors[i][j] = 1;
+            else neighbors[i][j] = 0;
+        }
+    }
 }

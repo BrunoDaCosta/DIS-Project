@@ -117,11 +117,11 @@ int fitness(double* fitness, double* distance, double* velocity){
 
 void display_data(double fit, double dist, double vel){
     char label[20];
-    sprintf(label, "Avg fitness: %.5f", fit);
+    sprintf(label, "Fitness: %.5f", fit);
     wb_supervisor_set_label(0,label,0.01,0.01,0.1,0x000000,0,"Arial");
-    sprintf(label, "Avg distance: %.5f", dist);
+    sprintf(label, "Distance: %.5f", dist);
     wb_supervisor_set_label(2,label,0.01,0.06,0.1,0x000000,0,"Arial");
-    sprintf(label, "Avg velocity: %.5f", vel);
+    sprintf(label, "Velocity: %.5f", vel);
     wb_supervisor_set_label(3,label,0.01,0.11,0.1,0x000000,0,"Arial");
 
     fprintf(fp, "%g; %g; %g; %g;\n", wb_robot_get_time(), fit, dist, vel);

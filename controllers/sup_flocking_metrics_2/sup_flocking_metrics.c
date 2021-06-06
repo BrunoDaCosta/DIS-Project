@@ -49,7 +49,7 @@ int main() {
 /* RESET - Get device handles and starting locations */
 void reset() {
     // Device variables
-    char rob[] = "epuck0";
+    char rob[] = "epuck5";
     int i;  //counter
     center_pos_start[POS_X]=0; center_pos_start[POS_Z]=0;
     for (i=0;i<MAX_ROB;i++) {

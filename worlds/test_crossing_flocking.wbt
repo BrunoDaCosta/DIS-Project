@@ -10,7 +10,7 @@ WorldInfo {
 }
 Viewpoint {
   orientation -0.9998684634686608 0.016207307512567284 0.0006155842853415571 1.15569
-  position -1.60662 4.84674 2.3705
+  position -1.6129503007390844 4.446288754842524 2.193992683396566
 }
 PointLight {
   intensity 0.5
@@ -229,7 +229,7 @@ DEF SUPERVISOR Robot {
     }
   ]
   name "super0"
-  controller ""
+  controller "sup_flocking_metrics"
   supervisor TRUE
 }
 DEF SUPERVISOR Robot {
@@ -239,7 +239,7 @@ DEF SUPERVISOR Robot {
     }
   ]
   name "super1"
-  controller ""
+  controller "sup_flocking_metrics_2"
   supervisor TRUE
 }
 DEF epuck1 Robot {

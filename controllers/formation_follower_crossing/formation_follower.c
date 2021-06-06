@@ -89,6 +89,7 @@ WbDeviceTag dev_right_motor;
 WbDeviceTag ds[NB_SENSORS];	// Handle for the infrared distance sensors
 WbDeviceTag receiver;		// Handle for the receiver node
 WbDeviceTag emitter;		// Handle for the emitter node
+WbDeviceTag emitter_sup;	
 
 static int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_SIZE-1), robot ID
 
@@ -123,6 +124,9 @@ float leader_orientation_tmp = 0.0;
 
 int counter_kb = 0;
 
+static float goal_x = 0.0;
+static float goal_y = 0.0;
+
 //-----------------------------------------------------------------------------------//
 
 
@@ -134,6 +138,7 @@ void process_received_ping_messages(int time_step);
 void process_received_ping_messages_init(int time_step);
 void update_leader_measurement(float new_leader_range, float new_leader_bearing, float new_leader_orientation);
 bool same_group(int rob1,int rob2);
+ void sup_send_info();
 
 void init_devices(int ts);
 
@@ -160,6 +165,8 @@ void init_devices(int ts){
     // Communication
     receiver = wb_robot_get_device("receiver");
     emitter = wb_robot_get_device("emitter");
+    
+    emitter_sup =  wb_robot_get_device("emitter_sup");
 
 
 
@@ -322,6 +329,8 @@ int main()
 
     wb_motor_set_velocity(dev_left_motor, msl);
     wb_motor_set_velocity(dev_right_motor, msr);
+    
+    sup_send_info();
 
   }
 
@@ -472,7 +481,13 @@ void controller_get_gps(){
 
  		leader.rel_pos.x = leader_range*cos(leader_bearing);  // relative x pos
  		leader.rel_pos.y = leader_range*sin(leader_bearing);   // relative y pos
+ 		
+ 		goal_x = leader.rel_pos.x;
+                      goal_y = leader.rel_pos.y;
                       }
+                      
+        
+
         wb_receiver_next_packet(receiver);
    }
  }
@@ -548,4 +563,18 @@ wb_receiver_next_packet(receiver);
      return true;
    else
      return false;
+ }
+ 
+  // ################################# Metrics functions #################################
+ /*
+  *  each robot sends a ping message, so the other robots can measure relative range and bearing to the sender.
+  *  the message contains the robot's name
+  *  the range and bearing will be measured directly out of message RSSI and direction
+ */
+ void sup_send_info() {
+   //printf("Je passse ici\n");
+   double buffer[2];
+    buffer[0] = robot_id;
+    buffer[1] = sqrt(pow(goal_x-leader.rel_pos.x,2) + pow(goal_y-leader.rel_pos.y,2));
+    wb_emitter_send(emitter_sup,(void *)buffer,(2)*sizeof(double));;
  }

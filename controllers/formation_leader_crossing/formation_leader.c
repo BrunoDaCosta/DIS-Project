@@ -103,7 +103,7 @@ int Interconn[16] = {20,10,0,0,0,0,-9,-19,-20,-10,0,0,0,0,9,19};; // Maze
 float INITIAL_POS[FLOCK_SIZE][3] = {{-0.1, 0, -M_PI}, {-0.1, -0.1, -M_PI}, {-0.1, 0.1, -M_PI}, {-0.1, -0.2, -M_PI}, {-0.1, 0.2, -M_PI},{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
 
 float migr1[2] = {-2.9, 0};
-float migr2[2] = {-0.1, 0};	                // Migration vector
+float migr2[2] = {-0.1, 0};               // Migration vector
 float migr[2] = {-1.5, 0};
 static FILE *fp;
 
@@ -248,7 +248,7 @@ int main()
 		
               
            
-                if(fabs(migr[0]-rf[robot_id].pos.x)>MIGRATION_DIST)
+                if(fabs(migr[0]-rf[robot_id].pos.x)>100*MIGRATION_DIST)
                 {
                   rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
                   }

@@ -38,7 +38,7 @@ int main() {
     int time_step = wb_robot_get_basic_time_step();
     while(wb_robot_step(time_step) != -1){
         if (!fitness(&fit, &distance, &velocity)) continue;
-        display_data(fit, distance, velocity);
+        //display_data(fit, distance, velocity);
         iter++;
     }
     fit/=iter; distance/=iter; velocity/=iter;

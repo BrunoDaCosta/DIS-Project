@@ -97,11 +97,12 @@ static int robot_id_u, robot_id;	// Unique and normalized (between 0 and FLOCK_S
 /*VARIABLES*/
 static measurement_t  _meas;
 static robot_t rf[FLOCK_SIZE];
+static int iter = 0;
 
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
-int Interconn[16] = {20,30,30,10,10,-5,-9,-19,-20,-10,-5,9,9,28,28,19}; // Maze
+int Interconn[16] = {20,30,30,5,5,-5,-9,-19,-20,-10,-5,4,4,28,28,19}; // Maze
 //int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
 float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
@@ -212,7 +213,7 @@ void init_devices(int ts){
 
 void braitenberg(float* msl, float* msr){
     int i;				// Loop counter
-    float factor = 1;
+    float factor = 5;
     float bmsl=0, bmsr=0;
 
     /* Braitenberg */
@@ -223,13 +224,16 @@ void braitenberg(float* msl, float* msr){
         }
     }
     if (abs(bmsr) > 0 || abs(bmsl) > 0){
-      *msl = *msl*0.1 +  bmsl/400*MAX_SPEED_WEB/1000;
-      *msr = *msr*0.1 +  bmsr/400*MAX_SPEED_WEB/1000;
+      *msl = *msl*0.01 +  bmsl/400*MAX_SPEED_WEB/1000;
+      *msr = *msr*0.01 +  bmsr/400*MAX_SPEED_WEB/1000;
+      if (robot_id == 2) printf("Object detected\n");
     
     }else{
       *msl += bmsl/400*MAX_SPEED_WEB/1000;
       *msr += bmsr/400*MAX_SPEED_WEB/1000;
+      if (robot_id == 2) printf("No Object detected\n");
     }
+    
 }
 
 void update_leader_measurement(float new_leader_range, float new_leader_bearing, float new_leader_orientation) {
@@ -243,9 +247,9 @@ void update_leader_measurement(float new_leader_range, float new_leader_bearing,
  */
 void compute_wheel_speeds(int nsl, int nsr, float *msl, float *msr) {
 	// Define constants
-	float Ku = 2.0;
-	float Kw = 10.0;
-	float Kb = 0.0;
+	float Ku = 0.2;
+	float Kw = 0.5;
+	float Kb = 1;
 	if(counter_kb<=SIZE_MEMORY)
 	{
 	     Kb=0.0;

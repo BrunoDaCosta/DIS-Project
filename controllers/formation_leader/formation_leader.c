@@ -109,8 +109,7 @@ static robot_t rf[FLOCK_SIZE];
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
-int Interconn[16] = {20,30,30,0,0,-5,-9,-19,-20,-10,-5,0,0,28,28,19}; // Maze
-//int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
+int Interconn[16] = {20,30,30,10,-10,-5,-9,-19,-20,-10,-5,-9,9,28,28,19}; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
 float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}};
 
@@ -193,7 +192,7 @@ void init_devices(int ts){
 
 void braitenberg(float* msl, float* msr){
     int i;				// Loop counter
-    float factor = 1;
+    float factor = 5;
     float bmsl=0, bmsr=0;
 
     /* Braitenberg */
@@ -207,7 +206,6 @@ void braitenberg(float* msl, float* msr){
     if (abs(bmsr) > 0 || abs(bmsl) > 0){
       *msl = *msl*0.1 +  bmsl/400*MAX_SPEED_WEB/1000;
       *msr = *msr*0.1 +  bmsr/400*MAX_SPEED_WEB/1000;
-    
     }else{
       *msl += bmsl/400*MAX_SPEED_WEB/1000;
       *msr += bmsr/400*MAX_SPEED_WEB/1000;
@@ -221,8 +219,8 @@ void braitenberg(float* msl, float* msr){
 void compute_wheel_speeds(float *msl, float *msr)
 {
 	// Compute wanted position from Reynold's speed and current location
-	float Ku = 0.2;   // Forward control coefficient
-	float Kw = 0.3;  // Rotational control coefficient
+	float Ku = 0.3;   // Forward control coefficient
+	float Kw = 1.0;  // Rotational control coefficient
 	float range = sqrtf(rf[robot_id].rey_speed.x*rf[robot_id].rey_speed.x +rf[robot_id].rey_speed.y*rf[robot_id].rey_speed.y);	  // Distance to the wanted position
 	float bearing = atan2(rf[robot_id].rey_speed.y, rf[robot_id].rey_speed.x);	  // Orientation of the wanted position
 
@@ -236,8 +234,11 @@ void compute_wheel_speeds(float *msl, float *msr)
 	*msl = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 
-	limit(msl,MAX_SPEED);
-	limit(msr,MAX_SPEED);
+	//limit(msl,MAX_SPEED);
+	//limit(msr,MAX_SPEED);
+
+            *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
+            *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;
 }
 
 
@@ -293,12 +294,13 @@ int main()
     // Compute wheels speed from Reynold's speed
     compute_wheel_speeds(&msl, &msr);
 
-    // Add Braitenberg
-
-    msl = msl*MAX_SPEED_WEB/1000;
-    msr = msr*MAX_SPEED_WEB/1000;
     
     braitenberg(&msl, &msr);
+    
+    limit(&msl, 6.27);
+    limit(&msr, 6.27);
+    
+    
     wb_motor_set_velocity(dev_left_motor, msl);
     wb_motor_set_velocity(dev_right_motor, msr);
     

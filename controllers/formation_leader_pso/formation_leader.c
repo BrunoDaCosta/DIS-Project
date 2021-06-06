@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdio.h>
 #include <string.h>
 #include <math.h>
 
@@ -37,7 +38,7 @@
 
 #define NB_SENSORS    8	           // Number of distance sensors
 #define FLOCK_SIZE	5                     // Size of flock
-#define BIAS_SPEED           200
+#define BIAS_SPEED           600
 #define DEL_SPEED            BIAS_SPEED/2
 
 
@@ -113,8 +114,7 @@ static void controller_get_acc();
 static void controller_get_encoder();
 static void controller_get_gps();
 static void controller_compute_mean_acc();
-static void controller_print_log();
-static bool controller_init_log(const char* filename);
+
 
 static void odometry_update(int time_step);
 void process_received_ping_messages(int time_step);
@@ -174,7 +174,10 @@ void init_devices(int ts){
         rf[i].rel_prev_pos.y = INITIAL_POS[i][1];
     }
 
-    printf("Init: robot %d\n",robot_id_u);
+    receiver_sup = wb_robot_get_device("receiver_sup");
+    wb_receiver_enable(receiver_sup,ts);
+
+    //printf("Init: robot %d\n",robot_id_u);
 }
 
 
@@ -232,9 +235,9 @@ void compute_wheel_speeds(float *msl, float *msr)
 int main()
 {
     float msl, msr;
-    int iter = 0;
 
     while (1){
+        int iter = 0;
         wb_robot_init();
         int time_step = wb_robot_get_basic_time_step();
         init_devices(time_step);
@@ -243,7 +246,6 @@ int main()
             msl=BIAS_SPEED; msr=BIAS_SPEED; // put 0 if you want to use the keyboard
 
             odometry_update(time_step);
-            controller_print_log();
 
             braitenberg(&msl, &msr);
 
@@ -415,36 +417,6 @@ void controller_get_gps(){
   memcpy(_meas.gps, gps_position, sizeof(_meas.gps));
 }
 
-/**
- * @brief      Log the usefull informations about the simulation
- *
- * @param[in]  time  The time
- */
-void controller_print_log()
-{
-  if( fp != NULL){
-    fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
-            wb_robot_get_time(), rf[robot_id].pos.x, rf[robot_id].pos.y , rf[robot_id].pos.heading, _meas.gps[0], _meas.gps[2],
-             rf[robot_id].speed.x, rf[robot_id].speed.y, rf[robot_id].acc.x, rf[robot_id].acc.y);
-  }
-}
-
-/**
- * @brief      Initialize the logging of the file
- *
- * @param[in]  filename  The filename to write
- *
- * @return     return true if it fails
- */
- bool controller_init_log(const char* filename){
-   fp = fopen(filename,"w");
-   bool err = (fp == NULL);
-
-   if( !err ){
-     fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; speed_x; speed_y; acc_x; acc_y; actual_pos_x; actual_pos_y\n");
-   }
-   return err;
- }
 
 
  /*
@@ -469,7 +441,7 @@ void controller_print_log()
     while (wb_receiver_get_queue_length(receiver_sup) > 0) {
         inbuffer = (double*) wb_receiver_get_data(receiver_sup);
 
-        stop = inbuffer[0];
+        if (!stop) stop = (int) inbuffer[0];
 
         wb_receiver_next_packet(receiver_sup);
     }

@@ -1,4 +1,4 @@
-build/release/formation_leader.o: formation_leader.c \
+build/release/formation_follower.o: formation_follower.c \
  C:\Program\ Files\Webots/include/controller/c/webots/robot.h \
  C:\Program\ Files\Webots/include/controller/c/webots/types.h \
  C:\Program\ Files\Webots/include/controller/c/webots/nodes.h \

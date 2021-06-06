@@ -35,7 +35,7 @@
 
 enum {POS_X=0,POS_Y,POS_Z};
 
-#define TARGET_FLOCKING_DIST 0.3
+#define TARGET_FLOCKING_DIST 0.2
 #define ROBOT_MAX_SPEED 0.002
 
 static WbNodeRef robs[MAX_ROB];

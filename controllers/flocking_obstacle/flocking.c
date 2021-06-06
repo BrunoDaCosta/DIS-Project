@@ -179,7 +179,8 @@ void braitenberg(float* msl, float* msr){
     int i;				// Loop counter
     int bmsl = 0;
     int bmsr = 0;
-
+    
+    /* Braitenberg */
     for (i=0;i<NB_SENSORS;i++) {
         if(lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))!=1){
             bmsr += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i] * FACTOR;
@@ -189,7 +190,7 @@ void braitenberg(float* msl, float* msr){
     if (abs(bmsr) > 0 || abs(bmsl) > 0){
       *msl = *msl*0.1 +  bmsl/400*MAX_SPEED_WEB/1000;
       *msr = *msr*0.1 +  bmsr/400*MAX_SPEED_WEB/1000;
-    
+
     }else{
       *msl += bmsl/400*MAX_SPEED_WEB/1000;
       *msr += bmsr/400*MAX_SPEED_WEB/1000;
@@ -349,7 +350,7 @@ int main()
 }
 
 void odometry_update(int time_step){
-  
+
     controller_get_encoder();
 
   KF_Update_Cov_Matrix((double) time_step/1000);
@@ -449,17 +450,17 @@ void controller_get_gps(){
                       double y=message_direction[0];
                       double x=-message_direction[2];
                       theta = atan2(y,x) + rf[robot_id].pos.heading;
-                      
+
                       range = sqrt((1/message_rssi));
 
-                      
+
  		// Get position update
  		rf[other_robot_id].rel_prev_pos.x = rf[other_robot_id].rel_pos.x;
  		rf[other_robot_id].rel_prev_pos.y = rf[other_robot_id].rel_pos.y;
 
  		rf[other_robot_id].rel_pos.x = range*cos(theta);  // relative x pos
  		rf[other_robot_id].rel_pos.y = range*sin(theta);   // relative y pos
- 		
+
         rf[other_robot_id].rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);
         rf[other_robot_id].rel_speed.y = (1/((float) time_step))*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].rel_prev_pos.y);
 

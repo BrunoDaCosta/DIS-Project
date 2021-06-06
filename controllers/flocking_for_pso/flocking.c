@@ -34,19 +34,19 @@
 #define MAX_SPEED_WEB     6.27    // Maximum speed webots
 #define MAX_SPEED         800     // Maximum speed
 
-#define INIT_RULE1_THRESHOLD     0.3           // Threshold to activate aggregation rule. default 0.20
+#define INIT_RULE1_THRESHOLD     0.2           // Threshold to activate aggregation rule. default 0.20
 #define INIT_RULE1_WEIGHT        (0.6/10)      // Weight of aggregation rule. default 0.6/10
 
-#define INIT_RULE2_THRESHOLD     0.3          // Threshold to activate dispersion rule. default 0.15
+#define INIT_RULE2_THRESHOLD     0.2          // Threshold to activate dispersion rule. default 0.15
 #define INIT_RULE2_WEIGHT        (0.02/10) // Weight of dispersion rule. default 0.02/10
 
 #define INIT_RULE3_WEIGHT        (1.0/10)      // Weight of consistency rule. default 1.0/10
 
-#define MIGRATORY_URGE    1
+#define MIGRATORY_URGE         1
 #define INIT_MIGRATION_WEIGHT  (0.01/10)*20    // Wheight of attraction towards the common goal. default 0.01/10
-#define MIGRATION_DIST    (0.01/10)
+#define MIGRATION_DIST         (0.01/10)
 
-#define INIT_FACTOR             15.0
+#define INIT_FACTOR             1.0
 
 #define M_PI 3.14159265358979323846
 #define SIGN(x) ((x>=0)?(1):-(1))
@@ -101,7 +101,7 @@ static robot_t rf[FLOCK_SIZE];
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
-int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
+int Interconn[16] = {20,10,3,3,3,-2,-9,-19,-20,-10,-3,3,3,2,9,19};; // Maze
 //int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
 float INITIAL_POS[FLOCK_SIZE][3] = {{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
 
@@ -178,7 +178,7 @@ void init_devices(int ts){
         rf[i].rel_prev_pos.x = INITIAL_POS[i][0];
         rf[i].rel_prev_pos.y = INITIAL_POS[i][1];
     }
-    
+
     // Comunication for PSO
     receiver_sup = wb_robot_get_device("receiver_sup");
     wb_receiver_enable(receiver_sup,ts);
@@ -193,17 +193,18 @@ void braitenberg(float* msl, float* msr){
     /* Braitenberg */
     for (i=0;i<NB_SENSORS;i++) {
         if(lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))!=1){
-            bmsr += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i] * factor;
-            bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * factor;
+            bmsr += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i] * FACTOR;
+            bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * FACTOR;
         }
     }
-    //Correction
-    //bmsr /=10;
-    //bmsl /=10;
+    if (abs(bmsr) > 0 || abs(bmsl) > 0){
+      *msl = *msl*0.1 +  bmsl/400*MAX_SPEED_WEB/1000;
+      *msr = *msr*0.1 +  bmsr/400*MAX_SPEED_WEB/1000;
 
-    // Adapt Braitenberg values (empirical tests)
-    *msl += bmsl/400*MAX_SPEED_WEB/1000;
-    *msr += bmsr/400*MAX_SPEED_WEB/1000;
+    }else{
+      *msl += bmsl/400*MAX_SPEED_WEB/1000;
+      *msr += bmsr/400*MAX_SPEED_WEB/1000;
+    }
 }
 
 void reynolds_rules() {
@@ -280,16 +281,22 @@ void reynolds_rules() {
 void compute_wheel_speeds(float *msl, float *msr)
 {
 	// Compute wanted position from Reynold's speed and current location
-	float Ku = 0.2;   // Forward control coefficient
+    float Ku = 0.4;   // Forward control coefficient
 	float Kw = 0.3;  // Rotational control coefficient
 	float range = sqrtf(rf[robot_id].rey_speed.x*rf[robot_id].rey_speed.x +rf[robot_id].rey_speed.y*rf[robot_id].rey_speed.y);	  // Distance to the wanted position
 	float bearing = atan2(rf[robot_id].rey_speed.y, rf[robot_id].rey_speed.x);	  // Orientation of the wanted position
 
-	// Compute forward control
-	float u = Ku*range*cosf(bearing-rf[robot_id].pos.heading);
+	float delta = bearing-rf[robot_id].pos.heading;
+	if(delta>M_PI)
+                delta-=2*M_PI;
+	if(delta<-M_PI)
+                delta+=2*M_PI;
+
+           // Compute forward control
+	float u = Ku*range*cosf(delta);
 
 	// Compute rotational control
-	float w = Kw*(bearing-rf[robot_id].pos.heading);
+	float w = Kw*(delta);
 	// Convert to wheel speeds!
 	*msl = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
@@ -345,7 +352,7 @@ int main()
 }
 
 void odometry_update(int time_step){
-  
+
     controller_get_encoder();
 
   KF_Update_Cov_Matrix((double) time_step/1000);
@@ -354,9 +361,9 @@ void odometry_update(int time_step){
   if (ACTIVATE_KALMAN &&   time_now_s - last_gps_time_s >= 1.0f){
     last_gps_time_s = time_now_s;
     controller_get_gps();
-    
+
     Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].pos.heading, &rf[robot_id].speed.x, &rf[robot_id].speed.y, &_meas.gps[0], &_meas.gps[2]);
-    
+
     }
 }
 
@@ -456,7 +463,7 @@ void controller_get_gps(){
 
  		rf[other_robot_id].rel_pos.x = range*cos(theta);  // relative x pos
  		rf[other_robot_id].rel_pos.y = range*sin(theta);   // relative y pos
- 		
+
         rf[other_robot_id].rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);
         rf[other_robot_id].rel_speed.y = (1/((float) time_step))*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].rel_prev_pos.y);
 
@@ -480,7 +487,7 @@ void controller_get_gps(){
        rule2_weight = inbuffer[2];
        rule3_weight = inbuffer[3];
        migration_weight = inbuffer[4];
-       factor = inbuffer[5]*150;
+       factor = inbuffer[5]*FACTOR*10;
 
 
        wb_receiver_next_packet(receiver_sup);

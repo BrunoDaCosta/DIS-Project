@@ -170,7 +170,7 @@ void init_devices(int ts){
        migr[0] = -0.1;
        migr[1] = INITIAL_POS[robot_id][1];
     }
-      
+
     for(i=0; i<FLOCK_SIZE; i++) {
         rf[i].pos.x = INITIAL_POS[i][0];
         rf[i].pos.y = INITIAL_POS[i][1];
@@ -178,7 +178,7 @@ void init_devices(int ts){
 
         rf[i].rel_prev_pos.x = INITIAL_POS[i][0];
         rf[i].rel_prev_pos.y = INITIAL_POS[i][1];
-        
+
     }
 }
 
@@ -201,7 +201,7 @@ void braitenberg(float* msl, float* msr){
     // Adapt Braitenberg values (empirical tests)
     *msl += bmsl/400*MAX_SPEED_WEB/1000;
     *msr += bmsr/400*MAX_SPEED_WEB/1000;
-    
+
 }
 
 void reynolds_rules() {
@@ -214,14 +214,14 @@ void reynolds_rules() {
 
 	/* Compute averages over the whole flock */
 	for(i=0; i<FLOCK_SIZE; i++) {
-	     if (i == robot_id || !same_group(robot_id,i)) 
+	     if (i == robot_id || !same_group(robot_id,i))
         	          continue; // don't consider yourself for the average
                 avg_speed[0] += rf[i].rel_speed.x;
                 avg_speed[1] += rf[i].rel_speed.y;
                 avg_loc[0] += rf[i].rel_pos.x;
                 avg_loc[1] += rf[i].rel_pos.y;
            }
-	
+
 	avg_speed[0] /= FLOCK_SIZE/2-1;
            avg_speed[1] /= FLOCK_SIZE/2-1;
 	avg_loc[0] /= FLOCK_SIZE/2-1;
@@ -275,7 +275,7 @@ void reynolds_rules() {
              rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
              }
             }
-	
+
 	}
 
     if(robot_id==10/*pour pas que ça print*/)
@@ -297,14 +297,14 @@ void compute_wheel_speeds(float *msl, float *msr)
 	float Kw = 0.5;  // Rotational control coefficient
 	float range = sqrtf(rf[robot_id].rey_speed.x*rf[robot_id].rey_speed.x +rf[robot_id].rey_speed.y*rf[robot_id].rey_speed.y);	  // Distance to the wanted position
 	float bearing = atan2(rf[robot_id].rey_speed.y, rf[robot_id].rey_speed.x);	  // Orientation of the wanted position
-           
+
 	// Compute forward control
 	float delta = bearing-rf[robot_id].pos.heading;
 	if(delta>M_PI)
                 delta-=2*M_PI;
 	if(delta<-M_PI)
                 delta+=2*M_PI;
-                
+
            // Compute forward control
 	float u = Ku*range*cosf(delta);
 
@@ -342,12 +342,12 @@ int main()
 
     // Reynold's rules with all previous info (updates the speed[][] table)
     reynolds_rules();
-    
+
     // Compute wheels speed from Reynold's speed
     compute_wheel_speeds(&msl, &msr);
     // Add Braitenberg
     braitenberg(&msl, &msr);
-    
+
     limit(&msl, MAX_SPEED_WEB);
     limit(&msr, MAX_SPEED_WEB);
     wb_motor_set_velocity(dev_left_motor, msl);
@@ -364,7 +364,7 @@ int main()
 }
 
 void odometry_update(int time_step){
-  
+
   controller_get_encoder();
 
   KF_Update_Cov_Matrix((double) time_step/1000);
@@ -373,7 +373,7 @@ void odometry_update(int time_step){
   if (ACTIVATE_KALMAN &&   time_now_s - last_gps_time_s >= 1.0f){
     last_gps_time_s = time_now_s;
     controller_get_gps();
-    
+
      Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].speed.x, &rf[robot_id].speed.y, &_meas.gps[0], &_meas.gps[2]);
     }
 }
@@ -462,15 +462,15 @@ void controller_get_gps(){
  		message_direction = wb_receiver_get_emitter_direction(receiver);
  		message_rssi = wb_receiver_get_signal_strength(receiver);
 
-                      
+
  		other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
 
                       //theta = message_direction[0]*M_PI/2; //+ rf[robot_id].pos.heading;
                       // printf("Theta from message is %f\n", theta);
                       //double y = message_direction[2];
                       // double x = message_direction[1];
-                      
-                     
+
+
                       //theta = -atan2(y,x) + rf[robot_id].pos.heading;
                       //if(robot_id==4)printf("Rob %d from rob %d 0: %f, 1: %f, 2: %f \n", robot_id,other_robot_id,message_direction[0],message_direction[1],message_direction[2]);
                       //theta = message_direction[0]*M_PI/2 + rf[robot_id].pos.heading;
@@ -478,12 +478,12 @@ void controller_get_gps(){
                       double x=-message_direction[2];
                       theta = atan2(y,x) + rf[robot_id].pos.heading;
                       //if(robot_id==4)printf("Rob %d from rob %d Theta: %f\n", robot_id,other_robot_id,theta);
-                      
+
                       //printf("Theta = %f\n", theta);
  		range = sqrt((1/message_rssi));
- 		
+
                       //printf("Robot %d from %d, x = %f, y = %f, dim_3 = %f, my_theta = %f, theta = %f\n", robot_id, other_robot_id, x, y, message_direction[0], 270 - rf[robot_id].pos.heading*180.0/3.141592, theta*180.0/3.141592);
-                      
+
  		// Get position update
  		rf[other_robot_id].rel_prev_pos.x = rf[other_robot_id].rel_pos.x;
  		rf[other_robot_id].rel_prev_pos.y = rf[other_robot_id].rel_pos.y;
@@ -491,7 +491,7 @@ void controller_get_gps(){
  		rf[other_robot_id].rel_pos.x = range*cos(theta);  // relative x pos
  		rf[other_robot_id].rel_pos.y = range*sin(theta);   // relative y pos
  		//if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
-                      
+
  		//printf("Robot %d from %d, rel_x = %f, rel_y = %f\n", robot_id, other_robot_id, rf[other_robot_id].rel_pos.x, rf[other_robot_id].rel_pos.y);
 
         rf[other_robot_id].rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);
@@ -500,7 +500,7 @@ void controller_get_gps(){
         wb_receiver_next_packet(receiver);
  	}
  }
- 
+
  bool same_group(int rob1,int rob2)
  {
    if((rob1<5 && rob2<5)||(rob1>4 && rob2>4))

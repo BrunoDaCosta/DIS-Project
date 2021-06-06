@@ -4,7 +4,7 @@
 #include <webots/supervisor.h>
 
 #define MAX_ROB 5
-#define TARGET_FLOCKING_DIST 0.3
+#define TARGET_FLOCKING_DIST 0.2
 #define ROBOT_MAX_SPEED 0.002
 
 enum {POS_X=0,POS_Y,POS_Z};

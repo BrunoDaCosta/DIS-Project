@@ -230,8 +230,8 @@ void update_leader_measurement(float new_leader_range, float new_leader_bearing,
  */
 void compute_wheel_speeds(int nsl, int nsr, float *msl, float *msr) {
 	// Define constants
-	float Ku = 0.2;
-	float Kw = 0.5;
+	float Ku = 0.3;
+	float Kw = 1;
 	float Kb = 1.0;
 	if(counter_kb<=SIZE_MEMORY)
 	{

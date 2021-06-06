@@ -98,7 +98,7 @@ static robot_t rf[FLOCK_SIZE];
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
-int Interconn[16] = {20,30,30,5,5,-5,-9,-19,-20,-10,-5,4,4,28,28,19}; // Maze
+int Interconn[16] = {20,10,0,0,0,0,-9,-19,-20,-10,0,0,0,0,9,19};; // Maze
 
 float INITIAL_POS[FLOCK_SIZE][3] = {{-0.1, 0, -M_PI}, {-0.1, -0.1, -M_PI}, {-0.1, 0.1, -M_PI}, {-0.1, -0.2, -M_PI}, {-0.1, 0.2, -M_PI},{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
 
@@ -207,8 +207,8 @@ void braitenberg(float* msl, float* msr){
 void compute_wheel_speeds(float *msl, float *msr)
 {
 	// Compute wanted position from Reynold's speed and current location
-	float Ku = 0.3;   // Forward control coefficient
-	float Kw = 1.0;  // Rotational control coefficient
+	float Ku = 0.7;   // Forward control coefficient
+	float Kw = 1;  // Rotational control coefficient
 	float range = sqrtf(rf[robot_id].rey_speed.x*rf[robot_id].rey_speed.x +rf[robot_id].rey_speed.y*rf[robot_id].rey_speed.y);	  // Distance to the wanted position
 	float bearing = atan2(rf[robot_id].rey_speed.y, rf[robot_id].rey_speed.x);	  // Orientation of the wanted position
 
@@ -222,8 +222,6 @@ void compute_wheel_speeds(float *msl, float *msr)
 	*msl = (u + WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 	*msr = (u - WHEEL_AXIS*w/2.0) * (1000.0 / WHEEL_RADIUS);
 
-	//limit(msl,MAX_SPEED);
-	//limit(msr,MAX_SPEED);
 
             *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
             *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;
@@ -254,7 +252,7 @@ int main()
                 {
                   rf[robot_id].rey_speed.x += MIGRATION_WEIGHT*SIGN(migr[0]-rf[robot_id].pos.x);
                   }
-                  if(fabs(migr[1]-rf[robot_id].pos.y)>500*MIGRATION_DIST)
+                  if(fabs(migr[1]-rf[robot_id].pos.y)>100*MIGRATION_DIST)
                   {
                      rf[robot_id].rey_speed.y += MIGRATION_WEIGHT*SIGN(migr[1]-rf[robot_id].pos.y);
                  }
@@ -263,8 +261,11 @@ int main()
 
     // Compute wheels speed from Reynold's speed
     compute_wheel_speeds(&msl, &msr);
-
+    
+    //if(robot_id==0) printf(" \n");
+    //if(robot_id==0) printf("Bef msl: %f, msr %f \n",msl,msr);
     braitenberg(&msl, &msr);
+    //if(robot_id==0) printf("After msl: %f, msr %f \n",msl,msr);
     
     limit(&msl, 6.27);
     limit(&msr, 6.27);

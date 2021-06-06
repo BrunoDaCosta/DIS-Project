@@ -50,11 +50,12 @@ int main() {
 /* RESET - Get device handles and starting locations */
 void reset() {
     // Device variables
-    char rob[] = "epuck0";
+    char rob[] = "epuck5";
     char re[] = "receiver";
     int i;  //counter
     center_pos_start[POS_X]=0; center_pos_start[POS_Z]=0;
     for (i=0;i<MAX_ROB;i++) {
+        printf("%s\n", rob);
         robs[i] = wb_supervisor_node_get_from_def(rob);
         loc[i] = wb_supervisor_field_get_sf_vec3f(wb_supervisor_node_get_field(robs[i],"translation"));
         rot[i] = wb_supervisor_field_get_sf_rotation(wb_supervisor_node_get_field(robs[i],"rotation"));
@@ -95,6 +96,7 @@ int fitness(double* fitness, double* distance, double* velocity){
 
     for(i=0; i<MAX_ROB; i++){
         if (dist[i]==-1){
+            printf("Error in communication\n");
             return 0;
         }
         total_distance+=dist[i];

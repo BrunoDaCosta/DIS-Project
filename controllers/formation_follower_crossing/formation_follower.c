@@ -13,20 +13,10 @@
 #include <webots/keyboard.h>
 
 #include "kalman.h"
-#include "trajectories.h"
 #include "utils.h"
 
-// Verbose activation
-#define VERBOSE_GPS false
-#define VERBOSE_ENC false
-#define VERBOSE_ACC false
-
-#define VERBOSE_POS false
-#define VERBOSE_ACC_MEAN false
-// #define VERBOSE_KF false
 
 // Odometry type
-#define ODOMETRY_ACC false
 #define ACTIVATE_KALMAN true
 
 
@@ -110,8 +100,8 @@ static robot_t rf[FLOCK_SIZE];
 double last_gps_time_s = 0.0f;
 double time_end_calibration = 0;
 
-int Interconn[16] = {20,10,5,20,20,-4,-9,-19,-20,-10,-5,20,20,4,9,19};; // Maze
-//int Interconn[16] = {17,29,34,10,8,-38,-56,-76,-72,-58,-36,8,10,36,28,18}; // Maze
+int Interconn[16] = {20,30,30,5,5,-5,-9,-19,-20,-10,-5,4,4,28,28,19}; // Maze
+
 float INITIAL_POS[FLOCK_SIZE][3] = {{-0.1, 0, -M_PI}, {-0.1, -0.1, -M_PI}, {-0.1, 0.1, -M_PI}, {-0.1, -0.2, -M_PI}, {-0.1, 0.2, -M_PI},{-2.9, 0, 0}, {-2.9, 0.1, 0}, {-2.9, -0.1, 0}, {-2.9, 0.2, 0}, {-2.9, -0.2, 0}};
 float leader_old_pos[SIZE_MEMORY][2];
 
@@ -136,12 +126,8 @@ int counter_kb = 0;
 //-----------------------------------------------------------------------------------//
 
 
-static void controller_get_acc();
 static void controller_get_encoder();
 static void controller_get_gps();
-static void controller_compute_mean_acc();
-static void controller_print_log();
-static bool controller_init_log(const char* filename);
 
 static void odometry_update(int time_step);
 void process_received_ping_messages(int time_step);
@@ -207,14 +193,12 @@ void init_devices(int ts){
         leader_old_pos[i][0]=0;
         leader_old_pos[i][1]=0;
     }
-
-    printf("Init: robot %d\n",robot_id_u);
 }
 
 
 void braitenberg(float* msl, float* msr){
     int i;				// Loop counter
-    float factor = 10;
+    float factor = 5;
     float bmsl=0, bmsr=0;
 
     /* Braitenberg */
@@ -224,13 +208,15 @@ void braitenberg(float* msl, float* msr){
             bmsl += 200*(1/lookuptable_sensor(wb_distance_sensor_get_value(ds[i]))) * Interconn[i+NB_SENSORS] * factor;
         }
     }
-    //Correction
-    bmsr /=10;
-    bmsl /=10;
+    if (abs(bmsr) > 0 || abs(bmsl) > 0){
+      *msl = *msl*0.01 +  bmsl/400*MAX_SPEED_WEB/1000;
+      *msr = *msr*0.01 +  bmsr/400*MAX_SPEED_WEB/1000;
+    
+    }else{
+      *msl += bmsl/400*MAX_SPEED_WEB/1000;
+      *msr += bmsr/400*MAX_SPEED_WEB/1000;
+    }
 
-    // Adapt Braitenberg values (empirical tests)
-    *msl += bmsl/400*MAX_SPEED_WEB/1000;
-    *msr += bmsr/400*MAX_SPEED_WEB/1000;
 }
 
 void update_leader_measurement(float new_leader_range, float new_leader_bearing, float new_leader_orientation) {
@@ -244,23 +230,22 @@ void update_leader_measurement(float new_leader_range, float new_leader_bearing,
  */
 void compute_wheel_speeds(int nsl, int nsr, float *msl, float *msr) {
 	// Define constants
-	float Ku = 2.0;
-	float Kw = 10.0;
+	float Ku = 0.2;
+	float Kw = 0.5;
 	float Kb = 1.0;
 	if(counter_kb<=SIZE_MEMORY)
 	{
 	     Kb=0.0;
 	     counter_kb+=1;
             }
+            
 	// Compute the range and bearing to the wanted position
 	float x = leader_range * cosf(leader_bearing);
 	float y = leader_range * sinf(leader_bearing);
-	//printf("x = %f, y= %f\n",x,y);
-	//float theta = leader_orientation;
-	x += goal_range * cosf(- M_PI + goal_bearing /*+ theta*/);
-	y += goal_range * sinf(- M_PI + goal_bearing /*+ theta*/);
+	
+	x += goal_range * cosf(- M_PI + goal_bearing);
+	y += goal_range * sinf(- M_PI + goal_bearing);
 
-	//printf("After adding: x = %f, y= %f\n",x,y);
 
 	float range = sqrtf(x*x + y*y); // This is the wanted position (range)
 	float bearing = atan2(y, x);    // This is the wanted position (bearing)
@@ -271,29 +256,23 @@ void compute_wheel_speeds(int nsl, int nsr, float *msl, float *msr) {
 	float delta = leader_orientation-rf[robot_id].pos.heading;
 
 
-           //if(robot_id==4) printf("leader: %f \n", leader_orientation);
-
-           //if(robot_id==4) printf("Counter: %d \n", counter_kb);
-           //if(robot_id==4) printf("Delta angle: %f \n", delta);
 	if(delta>M_PI)
                 delta-=2*M_PI;
 	if(delta<-M_PI)
                 delta+=2*M_PI;
-           //if(robot_id==4) printf("Delta angle: %f \n", delta);
+                
 	float w = Kw * range * sinf(bearing) - Kb * sinf(delta);
-	// Of course, we can do a lot better by accounting for the speed of the leader (rather than just the position)
-           //printf("U = %f, w = %f\n",u, w);
-	// Convert to wheel speeds!
+
+
 	*msl = ((u - WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS));
 	*msr = ((u + WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS));
 
-	//limit(msl,MAX_SPEED);
-	//limit(msr,MAX_SPEED);
+	limit(msl,MAX_SPEED);
+	limit(msr,MAX_SPEED);
 
            *msl = ((float) *msl)*MAX_SPEED_WEB/MAX_SPEED;
            *msr = ((float) *msr)*MAX_SPEED_WEB/MAX_SPEED;
 
-	//printf("Speed: msl = %d, msr = %d\n",(int)((u - WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS)), (int)((u + WHEEL_AXIS*w/2.0) / (SPEED_UNIT_RADS * WHEEL_RADIUS)));
 }
 
 
@@ -301,19 +280,7 @@ void compute_wheel_speeds(int nsl, int nsr, float *msl, float *msr) {
 int main()
 {
   float msl,msr;
-  //const double *message_direction;
-  //double message_rssi; // Received Signal Strength indicator
-
-  if(ODOMETRY_ACC)
-  {
-    if (controller_init_log("odoacc.csv")) return 1;
-    printf("Use of odometry with accelerometers \n");
-  }
-  else
-  {
-    if (controller_init_log("odoenc.csv")) return 1;
-    printf("Use of odometry with encoders \n");
-  }
+ 
 
   wb_robot_init();
   int time_step = wb_robot_get_basic_time_step();
@@ -344,17 +311,11 @@ int main()
     }
 
     odometry_update(time_step);
-    controller_print_log();
 
 
     compute_wheel_speeds(0, 0, &msl, &msr);
-
-
-
-     //if(robot_id==2) printf("Before msl: %f msr: %f\n",msl,msr);
-    // Add Braitenberg
+    
     braitenberg(&msl, &msr);
-    //if(robot_id==2) printf("After msl: %f msr: %f\n",msl,msr);
 
     limit(&msl,MAX_SPEED_WEB);
     limit(&msr,MAX_SPEED_WEB);
@@ -362,7 +323,6 @@ int main()
     wb_motor_set_velocity(dev_left_motor, msl);
     wb_motor_set_velocity(dev_right_motor, msr);
 
-    //wb_robot_step(time_step);               // Executing the simulation for 64ms
   }
 
   // Close the log file
@@ -377,18 +337,7 @@ int main()
 void odometry_update(int time_step){
   rf[robot_id].prev_pos.x = rf[robot_id].pos.x;
   rf[robot_id].prev_pos.y = rf[robot_id].pos.y;
-  if(ODOMETRY_ACC){
-    if(wb_robot_get_time() < TIME_INIT_ACC){
-      controller_compute_mean_acc();
-      time_end_calibration = wb_robot_get_time();
-      return; // Maybe return 0 and skip the rest ???
-    }
-    else
-    controller_get_acc();
-  }
-  else{
-    controller_get_encoder();
-  }
+  controller_get_encoder();
 
   KF_Update_Cov_Matrix((double) time_step/1000);
 
@@ -396,14 +345,9 @@ void odometry_update(int time_step){
   if (ACTIVATE_KALMAN &&   time_now_s - last_gps_time_s >= 1.0f){
     last_gps_time_s = time_now_s;
     controller_get_gps();
-    if (VERBOSE_POS)  printf("ROBOT %d pose:\t %g %g %g | GPS data:%g %g\n", robot_id, rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading, _meas.gps[0], _meas.gps[2]);
-    //printf("ACC1: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
-    //if (robot_id==0) printf("GPS data: %g %g\n", _meas.gps[0], _meas.gps[1]);
+    
     Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].speed.x, &rf[robot_id].speed.y, &_meas.gps[0], &_meas.gps[2]);
-    //print_cov_matrix();
-    //printf("ACC2: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
-    if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading);
-    }
+     }
 }
 
 /**
@@ -446,9 +390,6 @@ void controller_get_encoder()
     if (rf[robot_id].pos.heading>M_PI) rf[robot_id].pos.heading-=2*M_PI;
     if (rf[robot_id].pos.heading<-M_PI) rf[robot_id].pos.heading+=2*M_PI;
 
-    //if(robot_id==4) printf("In odometry: %g %g\n", _meas.left_enc, _meas.right_enc);
-    if(VERBOSE_ENC)
-        printf("ROBOT enc : x: %g  y: %g heading: %g\n", rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
 }
 
 void controller_get_acc()
@@ -487,32 +428,9 @@ void controller_get_acc()
   rf[robot_id].pos.x += rf[robot_id].speed.x * time_step/ 1000.0;
   rf[robot_id].pos.y += rf[robot_id].speed.y * time_step/ 1000.0;
 
-  if(VERBOSE_ACC)
-    printf("ROBOT acc : x: %g  y: %g heading: %g\n", rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
-
 
 }
 
-void controller_compute_mean_acc()
-{
-  static int count = 0;
-
-  count++;
-  const double * acc_values = wb_accelerometer_get_values(dev_acc);
-  memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
-
-  if( count > 20 ) // Remove the effects of strong acceleration at the begining
-  {
-    for(int i = 0; i < 3; i++)
-        _meas.acc_mean[i] = (_meas.acc_mean[i] * (count - 21) + _meas.acc[i]) / ((double) count-20);
-  }
-  int time_step = wb_robot_get_basic_time_step();
-  if( count == (int) (TIME_INIT_ACC / (double) time_step) )
-    printf("Accelerometer initialization Done ! \n");
-
-  if(VERBOSE_ACC_MEAN)
-        printf("ROBOT acc mean : %g %g %g\n", _meas.acc_mean[0], _meas.acc_mean[1] , _meas.acc_mean[2]);
-}
 
 /**
  * @brief     Get the gps measurements for the position of the robot. Get the heading angle. Fill the pose structure.
@@ -524,48 +442,6 @@ void controller_get_gps(){
   memcpy(_meas.gps, gps_position, sizeof(_meas.gps));
 }
 
-/**
- * @brief      Log the usefull informations about the simulation
- *
- * @param[in]  time  The time
- */
-void controller_print_log()
-{
-  if( fp != NULL){
-    fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
-            wb_robot_get_time(), rf[robot_id].pos.x, rf[robot_id].pos.y , rf[robot_id].pos.heading, _meas.gps[0], _meas.gps[2],
-             rf[robot_id].speed.x, rf[robot_id].speed.y, rf[robot_id].acc.x, rf[robot_id].acc.y);
-  }
-}
-
-/**
- * @brief      Initialize the logging of the file
- *
- * @param[in]  filename  The filename to write
- *
- * @return     return true if it fails
- */
- bool controller_init_log(const char* filename){
-   fp = fopen(filename,"w");
-   bool err = (fp == NULL);
-
-   if( !err ){
-     fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; speed_x; speed_y; acc_x; acc_y; actual_pos_x; actual_pos_y\n");
-   }
-   return err;
- }
-/*
- void process_received_ping_messages(int time_step) {
- 	float *inbuffer;	// Buffer for the receiver node
- 	int other_robot_id;
- 	while (wb_receiver_get_queue_length(receiver) > 0) {
- 		inbuffer = (float*) wb_receiver_get_data(receiver);
- 		other_robot_id = inbuffer[0];  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
-                      printf("Robot_id = %d, angle = %f\n", other_robot_id, inbuffer[1]);
-
-        wb_receiver_next_packet(receiver);
-       }
- }*/
 
  void process_received_ping_messages_init(int time_step) {
  	const double *message_direction;
@@ -587,28 +463,16 @@ void controller_print_log()
                       goal_range = sqrt(1/message_rssi);
                      	goal_bearing = -atan2(y,x);
 
-		//printf("Goal of robot %d: range = %.2f, bearing = %.2f\n", robot_id, goal_range, goal_bearing);
 		leader_range = goal_range;
 		leader_bearing = goal_bearing;
 		if(other_robot_id == 0)
 		    leader_orientation = M_PI;
 		else
 		    leader_orientation = 0;
-		//printf("Lead_ori_init %f \n",leader_orientation);
 
  		leader.rel_pos.x = leader_range*cos(leader_bearing);  // relative x pos
  		leader.rel_pos.y = leader_range*sin(leader_bearing);   // relative y pos
-
- 		//printf("Rob %d X: %f Y: %f\n", robot_id,leader.rel_pos.x,leader.rel_pos.y);
                       }
- 		//if(robot_id==4)printf("Rob %d from rob %d X: %f Y: %f\n", robot_id,other_robot_id,rf[other_robot_id].rel_pos.x,rf[other_robot_id].rel_pos.y);
-
- 		//printf("Robot %d from %d, rel_x = %f, rel_y = %f\n", robot_id, other_robot_id, rf[other_robot_id].rel_pos.x, rf[other_robot_id].rel_pos.y);
-
-        //leader.rel_speed.x = (1/((float) time_step))*(rf[other_robot_id].rel_pos.x-rf[other_robot_id].rel_prev_pos.x);
-        //leader.rel_speed.y = (1/((float) time_step))*(rf[other_robot_id].rel_pos.y-rf[other_robot_id].rel_prev_pos.y);
-
-        //printf("    0: %f 1: %f 2: %f %f\n", message_direction[0], message_direction[1], message_direction[2], -atan2(-message_direction[2],message_direction[0]));
         wb_receiver_next_packet(receiver);
    }
  }
@@ -628,10 +492,10 @@ void process_received_ping_messages(int time_step) {
  		message_rssi = wb_receiver_get_signal_strength(receiver);
 
  		other_robot_id = (int)(inbuffer[5]-'0');  // since the name of the sender is in the received message. Note: this does not work for robots having id bigger than 9!
-                     	//if(robot_id==6) printf("Other id: %d \n",other_robot_id);
+                     	
                      	if(same_group(robot_id,other_robot_id))
                      	{
-                     	//if(robot_id==6) printf("Other id: %d \n",other_robot_id);
+                     	
                      	double y=message_direction[0];
                       double x=-message_direction[2];
 
@@ -649,8 +513,6 @@ void process_received_ping_messages(int time_step) {
 		///////////////////////////
 		double leader_new_x = rf[robot_id].pos.x + new_leader_range*cos(angle_pos_leader);
 		double leader_new_y = rf[robot_id].pos.y + new_leader_range*sin(angle_pos_leader);
-		//if(robot_id==4) printf("NEW posrob: %f, posleadrel: %f\n",rf[robot_id].pos.y,leader.rel_pos.y);
-
 		//////////////////
 		int i = 0;
 		for(i=0; i<SIZE_MEMORY-1; i++) {
@@ -663,8 +525,7 @@ void process_received_ping_messages(int time_step) {
 		//////////////////////
 		double leader_delta_x = leader_new_x -leader_old_pos[0][0];
 		double leader_delta_y = leader_new_y -leader_old_pos[0][1];
-		//if(robot_id==4) printf("ldx: %f, ldy: %f \n",leader_delta_x,leader_delta_y);
-		//if(robot_id==4) printf("Delta distance: %f \n",leader_delta_x*leader_delta_x+leader_delta_y*leader_delta_y);
+		
 		if(leader_delta_x*leader_delta_x+leader_delta_y*leader_delta_y>0.00002)
 		     new_leader_orientation = atan2(leader_delta_y,leader_delta_x);
 		else
@@ -672,21 +533,12 @@ void process_received_ping_messages(int time_step) {
 
         		leader_orientation_tmp = new_leader_orientation;
 
-		//if(robot_id==4) printf("Angle: %f \n",new_leader_orientation);
 
-		double y_ref = leader.rel_prev_pos.y - leader.rel_pos.y;
-		double x_ref = leader.rel_prev_pos.x - leader.rel_pos.x;
-
-          	           //if(robot_id==6) printf("Before Range: %f, Bearing: %f, Orientation: %f\n",new_leader_range, new_leader_bearing,new_leader_orientation);
-		update_leader_measurement(new_leader_range, new_leader_bearing, new_leader_orientation);
+          	           update_leader_measurement(new_leader_range, new_leader_bearing, new_leader_orientation);
 		}
 
 
-
- 		//break;
-
-        //printf("    0: %f 1: %f 2: %f %f\n", message_direction[0], message_direction[1], message_direction[2], -atan2(-message_direction[2],message_direction[0]));
-        wb_receiver_next_packet(receiver);
+wb_receiver_next_packet(receiver);
    }
  }
 

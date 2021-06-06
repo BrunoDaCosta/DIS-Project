@@ -12,15 +12,8 @@
 #include "trajectories.h"
 #include "utils.h"
 
-#define VERBOSE_GPS false
-#define VERBOSE_ENC false
-#define VERBOSE_ACC false
-
-#define VERBOSE_POS false
-#define VERBOSE_ACC_MEAN false
-
 #define ODOMETRY_ACC false
-#define ACTIVATE_KALMAN false
+#define ACTIVATE_KALMAN true
 
 
 /*CONSTANTES*/
@@ -65,7 +58,6 @@ WbDeviceTag dev_right_motor;
 /*VARIABLES*/
 static measurement_t  _meas;
 static robot_t        rf[1];
-static pose_t         _robot_init_pos;
 static const int      robot_id=0;
 
 //static motor_t        _motor = {false, true, true, MAX_SPEED / 4.0};
@@ -133,9 +125,10 @@ int main()
     while (wb_robot_step(time_step) != -1){
         odometry_update(time_step);
         controller_print_log();
+        
         // Use one of the two trajectories.
         trajectory_1(dev_left_motor, dev_right_motor,time_end_calibration);
-//    trajectory_2(dev_left_motor, dev_right_motor,time_end_calibration);
+      //trajectory_2(dev_left_motor, dev_right_motor,time_end_calibration);
   }
 
   // Close the log file
@@ -154,7 +147,7 @@ void odometry_update(int time_step){
     if(wb_robot_get_time() < TIME_INIT_ACC){
       controller_compute_mean_acc();
       time_end_calibration = wb_robot_get_time();
-      return; // Maybe return 0 and skip the rest ???
+      return; 
     }
     else
     controller_get_acc();
@@ -169,14 +162,8 @@ void odometry_update(int time_step){
   if (ACTIVATE_KALMAN &&   time_now_s - last_gps_time_s >= 1.0f){
     last_gps_time_s = time_now_s;
     controller_get_gps();
-    if (VERBOSE_POS)  printf("ROBOT %d pose:\t %g %g %g | GPS data:%g %g\n", robot_id, rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading, _meas.gps[0], _meas.gps[2]);
-    //printf("ACC1: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
-    //if (robot_id==0) printf("GPS data: %g %g\n", _meas.gps[0], _meas.gps[1]);
     Kalman_Filter(&rf[robot_id].pos.x , &rf[robot_id].pos.y, &rf[robot_id].pos.heading, &rf[robot_id].speed.x, &rf[robot_id].speed.y, &_meas.gps[0], &_meas.gps[2]);
-    //print_cov_matrix();
-    //printf("ACC2: %g %g %g\n", rf[robot_id].acc.x , rf[robot_id].acc.y, rf[robot_id].acc.heading);
-    if (VERBOSE_POS)  printf("ROBOT pose after Kalman: %g %g %g\n\n", rf[robot_id].pos.x , rf[robot_id].pos.y, rf[robot_id].pos.heading);
-    }
+   }
 }
 
 
@@ -188,7 +175,6 @@ void controller_get_encoder()
     int time_step = wb_robot_get_basic_time_step();
     // Store previous value of the left encoder
     _meas.prev_left_enc = _meas.left_enc;
-
     _meas.left_enc = wb_position_sensor_get_value(dev_left_encoder);
 
     double deltaleft=_meas.left_enc-_meas.prev_left_enc;
@@ -202,7 +188,7 @@ void controller_get_encoder()
     deltaleft  *= WHEEL_RADIUS;
     deltaright *= WHEEL_RADIUS;
 
-    double omega = - ( deltaright - deltaleft ) / ( WHEEL_AXIS * time_step ); //ADDED MINUS TO TEST --JEREMY
+    double omega = - ( deltaright - deltaleft ) / (2 * WHEEL_AXIS * time_step ); //ADDED MINUS TO TEST --JEREMY
     double speed = ( deltaright + deltaleft ) / ( 2.0 * time_step );
 
     double a = rf[robot_id].pos.heading;
@@ -220,9 +206,6 @@ void controller_get_encoder()
     if (rf[robot_id].pos.heading>M_PI) rf[robot_id].pos.heading-=2*M_PI;
     if (rf[robot_id].pos.heading<-M_PI) rf[robot_id].pos.heading+=2*M_PI;
 
-    //if(robot_id==4) printf("In odometry: %g %g\n", _meas.left_enc, _meas.right_enc);
-    if(VERBOSE_ENC)
-        printf("ROBOT enc : x: %g  y: %g heading: %g\n", rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
 }
 
 void controller_get_acc()
@@ -233,7 +216,6 @@ void controller_get_acc()
   memcpy(_meas.acc, acc_values, sizeof(_meas.acc));
 
   double accfront = ( _meas.acc[1] - _meas.acc_mean[1]);
-  //double accside = ( _meas.acc[0] - _meas.acc_mean[0]);
   double heading_tmp = rf[robot_id].pos.heading;
 
   _meas.prev_left_enc = _meas.left_enc;
@@ -261,8 +243,6 @@ void controller_get_acc()
   rf[robot_id].pos.x += rf[robot_id].speed.x * time_step/ 1000.0;
   rf[robot_id].pos.y += rf[robot_id].speed.y * time_step/ 1000.0;
 
-  if(VERBOSE_ACC)
-    printf("ROBOT acc : x: %g  y: %g heading: %g\n", rf[robot_id].pos.x, rf[robot_id].pos.y, rf[robot_id].pos.heading);
 
 
 }
@@ -283,9 +263,6 @@ void controller_compute_mean_acc()
   int time_step = wb_robot_get_basic_time_step();
   if( count == (int) (TIME_INIT_ACC / (double) time_step) )
     printf("Accelerometer initialization Done ! \n");
-
-  if(VERBOSE_ACC_MEAN)
-        printf("ROBOT acc mean : %g %g %g\n", _meas.acc_mean[0], _meas.acc_mean[1] , _meas.acc_mean[2]);
 }
 
 /**
@@ -305,9 +282,9 @@ void controller_get_gps(){
  */
 void controller_print_log()
 {
-  if( fp != NULL){
+  if( fp != NULL && fabs(wb_robot_get_time()-time_end_calibration)>=0.015){
     fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
-            wb_robot_get_time(), rf[robot_id].pos.x, rf[robot_id].pos.y , rf[robot_id].pos.heading, _meas.gps[0], _meas.gps[2],
+            wb_robot_get_time()-time_end_calibration, rf[robot_id].pos.x, rf[robot_id].pos.y , rf[robot_id].pos.heading, _meas.gps[0], _meas.gps[2],
              rf[robot_id].speed.x, rf[robot_id].speed.y, rf[robot_id].acc.x, rf[robot_id].acc.y);
   }
 }

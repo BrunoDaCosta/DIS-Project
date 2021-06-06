@@ -127,9 +127,9 @@ int counter_kb = 0;
 static float Ku = 2.0;
 static float Kw = 10.0;
 static float Kb = 1.0;
-static float Ku_mult = Ku;
-static float Kw_mult = Kw;
-static float Kb_mult = Kb;
+static float Ku_mult = 2.0;
+static float Kw_mult = 10.0;
+static float Kb_mult = 1.0;
 
 static float goal_x = 0.0;
 static float goal_y = 0.0;
@@ -217,7 +217,7 @@ void init_devices(int ts){
     receiver_sup = wb_robot_get_device("receiver_sup");
     wb_receiver_enable(receiver_sup,ts);
 
-    printf("Init: robot %d\n",robot_id_u);
+    //printf("Init: robot %d\n",robot_id_u);
 }
 
 
@@ -325,8 +325,8 @@ int main()
             while (wb_receiver_get_queue_length(receiver) == 0) {
             	wb_robot_step(time_step); // Executing the simulation for 64ms
             }
-        process_received_ping_messages_init(time_step);
-        initialized = 1;
+            process_received_ping_messages_init(time_step);
+            initialized = 1;
         }
 
     	msl=0; msr=0;
@@ -337,7 +337,6 @@ int main()
                 process_received_ping_messages(time_step);
                 wb_receiver_next_packet(receiver);
             }
-
             odometry_update(time_step);
 
             compute_wheel_speeds(0, 0, &msl, &msr);
@@ -350,10 +349,11 @@ int main()
             limit(&msl,MAX_SPEED_WEB);
             limit(&msr,MAX_SPEED_WEB);
 
+            //printf("%g %g\n", msl, msr);
             wb_motor_set_velocity(dev_left_motor, msl);
             wb_motor_set_velocity(dev_right_motor, msr);
 
-            PSO_send_info()
+            PSO_send_info();
 
             wb_robot_step(time_step);
         //wb_robot_step(time_step);               // Executing the simulation for 64ms
@@ -515,36 +515,8 @@ void controller_get_gps(){
   memcpy(_meas.gps, gps_position, sizeof(_meas.gps));
 }
 
-/**
- * @brief      Log the usefull informations about the simulation
- *
- * @param[in]  time  The time
- */
-void controller_print_log()
-{
-  if( fp != NULL){
-    fprintf(fp, "%g; %g; %g; %g; %g; %g; %g; %g; %g; %g\n",
-            wb_robot_get_time(), rf[robot_id].pos.x, rf[robot_id].pos.y , rf[robot_id].pos.heading, _meas.gps[0], _meas.gps[2],
-             rf[robot_id].speed.x, rf[robot_id].speed.y, rf[robot_id].acc.x, rf[robot_id].acc.y);
-  }
-}
 
-/**
- * @brief      Initialize the logging of the file
- *
- * @param[in]  filename  The filename to write
- *
- * @return     return true if it fails
- */
- bool controller_init_log(const char* filename){
-   fp = fopen(filename,"w");
-   bool err = (fp == NULL);
 
-   if( !err ){
-     fprintf(fp, "time; pose_x; pose_y; pose_heading;  gps_x; gps_y; speed_x; speed_y; acc_x; acc_y; actual_pos_x; actual_pos_y\n");
-   }
-   return err;
- }
 
  void process_received_ping_messages_init(int time_step) {
  	const double *message_direction;
@@ -588,7 +560,7 @@ void process_received_ping_messages(int time_step) {
  	int other_robot_id;
 
  	while (wb_receiver_get_queue_length(receiver) > 0) {
-       	           if(robot_id==4) printf(" \n");
+       	          // if(robot_id==4) printf(" \n");
 
  		inbuffer = (char*) wb_receiver_get_data(receiver);
  		message_direction = wb_receiver_get_emitter_direction(receiver);
@@ -653,7 +625,7 @@ void process_received_ping_messages(int time_step) {
  void PSO_send_info() {
  	double buffer[2];
     buffer[0] = robot_id;
-    buffer[1] = sqrt(pow(goal_x-leader.rel_pos.x,2) + pow(goal_y-leader.rel_pos.y,2));)
+    buffer[1] = sqrt(pow(goal_x-leader.rel_pos.x,2) + pow(goal_y-leader.rel_pos.y,2));
     wb_emitter_send(emitter_sup,(void *)buffer,(2)*sizeof(double));;
  }
   /*
@@ -665,13 +637,13 @@ void process_received_ping_messages(int time_step) {
     int stop=0;
     while (wb_receiver_get_queue_length(receiver_sup) > 0) {
         inbuffer = (double*) wb_receiver_get_data(receiver_sup);
-
-        stop = inbuffer[0];
+        stop = (int) inbuffer[0];
         Ku = inbuffer[1]*Ku_mult;
         Kw = inbuffer[2]*Kw_mult;
         Kb = inbuffer[3]*Kb_mult;
 
         wb_receiver_next_packet(receiver_sup);
     }
+    //printf("Stop: %d %g\n", stop, inbuffer[0]);
     return stop;
   }
